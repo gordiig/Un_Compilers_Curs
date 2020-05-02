@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Antlr4 Remove="TestOld.g4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Antlr4.CodeGenerator" Version="4.6.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
