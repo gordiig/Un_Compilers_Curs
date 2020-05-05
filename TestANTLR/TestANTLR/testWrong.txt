@@ -1,5 +1,5 @@
 // Wow, super code
-int main(void)
+int main()
 {
     int a = 1
 

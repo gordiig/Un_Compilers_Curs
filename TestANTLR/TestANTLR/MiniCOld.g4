@@ -1,4 +1,4 @@
-grammar MiniC;
+grammar MiniCOld;
 
 /*
  * Parser Rules
@@ -13,67 +13,17 @@ translationUnit
     ;
 
 externalDeclaration
-    :   declaration
-	|	definition
+    :   functionDefinition
+    |   declaration
     ;
-
-declaration 
-    :   functionDeclaration
-	|	varDeclaration
-	|	structDeclaration
-    ;
-
-definition
-	:	functionDefinition
-	|	varDefinition
-	;
-
-functionDeclaration
-	:	functionHeader Semi
-	;
-
-varDeclaration
-	:	varHeader Semi
-	;
-
-structDeclaration
-	:	Struct Identifier LeftBrace varDeclaration+ RightBrace Semi
-	;
-
-varHeader
-	:	typeQualifier? typeSpecifier Identifier
-	;
 
 functionDefinition
-    :   functionHeader compoundStatement
+    :   declarationSpecifier* declarator declaration* compoundStatement
     ;
 
-functionHeader
-	:	typeSpecifier Identifier LeftParen (Void | parameterDeclarationList)? RightParen
-	;
-
-varDefinition
-	:	varHeader assignmentOperator initializer Semi
-	;
-
-initializer
-    :   ternaryExpression
-    |   LeftBrace initializerList RightBrace
-    |   LeftBrace initializerList Comma RightBrace
-    ;
-
-initializerList
-    :   initializer
-    |   initializerList Comma initializer
-    ;
-
-parameterDeclarationList
-    :   parameterDeclaration
-    |   parameterDeclarationList Comma parameterDeclaration
-    ;
-
-parameterDeclaration
-    :   typeQualifier? typeSpecifier Identifier
+declarationSpecifier
+    :   typeSpecifier
+    |   typeQualifier
     ;
 
 typeSpecifier 
@@ -81,28 +31,55 @@ typeSpecifier
     |   Char
     |   Int
     |   Float
+    |   structSpecifier
+    ;
+
+structSpecifier 
+    :   Struct Identifier? LeftBrace structDeclaration+ RightBrace
     |   Struct Identifier
-	|	typeSpecifier LeftBracket RightBracket
+    ;
+
+structDeclaration 
+    :   specifierQualifier* structDeclaratorList
+    ;
+
+specifierQualifier 
+    :   typeSpecifier
+    |   typeQualifier
+    ;
+
+structDeclaratorList 
+    :   structDeclarator
+    |   structDeclaratorList Comma structDeclarator
+    ;
+
+structDeclarator 
+    :   declarator
+    |   declarator? Colon constantExpression
+    ;
+
+declarator
+    :   directDeclarator
     ;
 
 typeQualifier 
     :   Const
     ;
 
-compoundStatement
-    :   LeftBrace (varDeclaration | varDefinition)* statement* RightBrace
+directDeclarator 
+    :   Identifier
+    |   LeftParen declarator RightParen
+    |   directDeclarator LeftBracket constantExpression? RightBracket
+    |   directDeclarator LeftParen parameterList  RightParen
+    |   directDeclarator LeftParen Identifier* RightParen
     ;
 
-expression
-    :   assignmentExpression
+constantExpression
+    :   conditionalExpression
     ;
 
-assignmentExpression
-    :   (lValueExpression assignmentOperator)? ternaryExpression
-    ;
-
-ternaryExpression
-    :   logicalOrExpression (Question expression Colon ternaryExpression)?
+conditionalExpression
+    :   logicalOrExpression (Question expression Colon conditionalExpression)?
     ;
 
 logicalOrExpression
@@ -165,32 +142,96 @@ multiplicativeExpression
 
 unaryExpression
     :   postfixExpression
+    |   PlusPlus unaryExpression
+    |   MinusMinus unaryExpression
     |   unaryOperator unaryExpression
     ;
 
 postfixExpression
     :   primaryExpression
-    |   postfixExpression LeftBracket ternaryExpression RightBracket
-	|   postfixExpression LeftParen ternaryExpression* RightParen
+    |   postfixExpression LeftBracket expression RightBracket
+    |   postfixExpression LeftParen assignmentExpression* RightParen
     |   postfixExpression Dot Identifier
+    |   postfixExpression PlusPlus
+    |   postfixExpression MinusMinus
     ;
 
 primaryExpression
     :   Identifier
     |   Constant
+    |   StringLiteral+
     |   LeftParen expression RightParen
     ;
 
-lValueExpression
-	:	Identifier
-	|	lValueExpression LeftBracket ternaryExpression RightBracket
-	|	lValueExpression Dot Identifier
-	;
+expression
+    :   assignmentExpression
+    |   expression Comma assignmentExpression
+    ;
+
+assignmentExpression
+    :   conditionalExpression
+    |   unaryExpression assignmentOperator assignmentExpression
+    ;
+
+assignmentOperator
+    :   Assign | StarAssign | DivAssign | ModAssign | PlusAssign | MinusAssign 
+    |   LeftShiftAssign | RightShiftAssign | AndAssign | XorAssign | OrAssign
+    ;
+
+unaryOperator
+    :   And | Star | Plus | Minus | Tilde | Not
+    ;
+
+typeName
+    :   specifierQualifier+ directAbstractDeclarator?
+    ;
+        
+parameterList
+    :   parameterDeclaration
+    |   parameterList Comma parameterDeclaration
+    ;
+
+parameterDeclaration
+    :   declarationSpecifier+ declarator
+    |   declarationSpecifier+ directAbstractDeclarator?
+    ;
+
+directAbstractDeclarator
+    :   LeftParen directAbstractDeclarator RightParen
+    |   LeftBracket constantExpression? RightBracket
+    |   LeftParen parameterList? RightParen
+    |   directAbstractDeclarator LeftBracket constantExpression? RightBracket
+    |   directAbstractDeclarator LeftParen parameterList? RightParen
+    ;
+
+declaration
+    :   declarationSpecifier+ initDeclarator* Semi
+    ;
+
+initDeclarator
+    :   declarator
+    |   declarator Assign initializer
+    ;
+
+initializer
+    :   assignmentExpression
+    |   LeftBrace initializerList RightBrace
+    |   LeftBrace initializerList Comma RightBrace
+    ;
+
+initializerList
+    :   initializer
+    |   initializerList Comma initializer
+    ;
+
+compoundStatement
+    :   LeftBrace declaration* statement* RightBrace
+    ;
 
 statement
     :   expressionStatement
     |   compoundStatement
-    |   ifStatement
+    |   selectionStatement
     |   iterationStatement
     |   jumpStatement
     ;
@@ -199,7 +240,7 @@ expressionStatement
     :   expression? Semi
     ;
 
-ifStatement
+selectionStatement
     :   If LeftParen expression RightParen statement (Else statement)?
     ;
 
@@ -213,15 +254,6 @@ jumpStatement
     :   Continue Semi
     |   Break Semi
     |   Return expression? Semi
-    ;
-
-assignmentOperator
-    :   Assign | StarAssign | DivAssign | ModAssign | PlusAssign | MinusAssign 
-    |   LeftShiftAssign | RightShiftAssign | AndAssign | XorAssign | OrAssign
-    ;
-
-unaryOperator
-    :   And | Star | Plus | Minus | Tilde | Not
     ;
 
 /*
@@ -258,7 +290,9 @@ LeftShift : '<<';
 RightShift : '>>';
 
 Plus : '+';
+PlusPlus : '++';
 Minus : '-';
+MinusMinus : '--';
 Star : '*';
 Div : '/';
 Mod : '%';
@@ -415,6 +449,23 @@ CChar
 fragment
 EscapeSequence
     :   '\\' ['"?abfnrtv\\]
+    ;
+
+StringLiteral
+    :   '"' SCharSequence? '"'
+    ;
+
+fragment
+SCharSequence
+    :   SChar+
+    ;
+
+fragment
+SChar
+    :   ~["\\\r\n]
+    |   EscapeSequence
+    |   '\\\n'   // Added line
+    |   '\\\r\n' // Added line
     ;
 
 LineComment

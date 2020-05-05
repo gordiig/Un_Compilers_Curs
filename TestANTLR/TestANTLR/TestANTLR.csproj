@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Antlr4 Remove="MiniCOld.g4" />
     <Antlr4 Remove="TestOld.g4" />
   </ItemGroup>
 
@@ -18,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Antlr4 Update="MiniCOld.g4">
+      <DefaultCustomToolNamespace>$([MSBuild]::ValueOrDefault('$(RootNamespace).%(DefaultCustomToolNamespace)', '').TrimEnd('.'))</DefaultCustomToolNamespace>
+      <CustomToolNamespace>$([MSBuild]::ValueOrDefault(%(CustomToolNamespace), %(DefaultCustomToolNamespace)))</CustomToolNamespace>
+    </Antlr4>
     <Antlr4 Update="TestOld.g4">
       <DefaultCustomToolNamespace>$([MSBuild]::ValueOrDefault('$(RootNamespace).%(DefaultCustomToolNamespace)', '').TrimEnd('.'))</DefaultCustomToolNamespace>
       <CustomToolNamespace>$([MSBuild]::ValueOrDefault(%(CustomToolNamespace), %(DefaultCustomToolNamespace)))</CustomToolNamespace>
