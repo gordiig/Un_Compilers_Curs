@@ -37,19 +37,27 @@ namespace TestANTLR.Scopes
             return Table.TryGetValue(name, out ISymbol symbol);
         }
 
+        public ISymbol GetSymbol(string name)
+        {
+            if (Table.TryGetValue(name, out ISymbol symbol))
+                return symbol;
+
+            return null;
+        }
+
         /// <summary>
         /// Try to find symbol in current and parents scopes
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public bool FindSymbol(string name)
+        public ISymbol FindSymbol(string name)
         {
             if (Table.TryGetValue(name, out ISymbol symbol))
-                return true;
+                return symbol;
             if (Parent != null)
                 return Parent.FindSymbol(name);
 
-            return false;
+            return null;
         }
     }
 }

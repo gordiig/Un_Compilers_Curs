@@ -168,16 +168,21 @@ unaryExpression
     ;
 
 postfixExpression
-    :   primaryExpression
-    |   postfixExpression LeftBracket ternaryExpression RightBracket
-	|   postfixExpression LeftParen ternaryExpression* RightParen
-    |   postfixExpression Dot postfixExpression
+    :   primaryExpression												#PrimaryExp
+    |   postfixExpression LeftBracket ternaryExpression RightBracket	#ArrayRead
+    |   postfixExpression Dot Identifier								#StructRead
+	|   Identifier LeftParen parameterList RightParen					#FunctionCall
     ;
 
+parameterList
+	:	ternaryExpression
+	|	parameterList Comma ternaryExpression
+	;
+
 primaryExpression
-    :   Identifier
-    |   constant
-    |   LeftParen expression RightParen
+    :   Identifier														#VarRead
+    |   constant														#ConstRead
+    |   LeftParen ternaryExpression RightParen							#Parens
     ;
 
 lValueExpression

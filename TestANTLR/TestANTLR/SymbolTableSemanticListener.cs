@@ -5,26 +5,28 @@ using System.Collections.Generic;
 using System.Text;
 using TestANTLR.Exceptions;
 using TestANTLR.Scopes;
+using static TestANTLR.MiniCParser;
 
 namespace TestANTLR
 {
     public class SymbolTableSemanticListener : MiniCBaseListener
     {
         public ParseTreeProperty<Scope> Scopes { get; set; } = new ParseTreeProperty<Scope>();
+        public ParseTreeProperty<SymbolType> Types { get; set; } = new ParseTreeProperty<SymbolType>();
 
         private GlobalScope global;
         private Scope currScope;
 
         private int currVarArraySize;
 
-        public override void EnterCompilationUnit([NotNull] MiniCParser.CompilationUnitContext context)
+        public override void EnterCompilationUnit([NotNull] CompilationUnitContext context)
         {
             global = new GlobalScope();
             Scopes.Put(context, global);
             currScope = global;
         }
 
-        public override void EnterStructDeclaration([NotNull] MiniCParser.StructDeclarationContext context)
+        public override void EnterStructDeclaration([NotNull] StructDeclarationContext context)
         {
             var structId = context.Identifier();
             string name = "struct" + structId.GetText();
@@ -40,12 +42,12 @@ namespace TestANTLR
                 throw new SemanticException($"Repeating declaration of struct at {structId.Symbol.Line}:{structId.Symbol.Column}!");
         }
 
-        public override void ExitStructDeclaration([NotNull] MiniCParser.StructDeclarationContext context)
+        public override void ExitStructDeclaration([NotNull] StructDeclarationContext context)
         {
             currScope = currScope.Parent;
         }
 
-        public override void EnterFunctionHeader([NotNull] MiniCParser.FunctionHeaderContext context)
+        public override void EnterFunctionHeader([NotNull] FunctionHeaderContext context)
         {
             var functionId = context.Identifier();
             string name = functionId.GetText();
@@ -62,13 +64,13 @@ namespace TestANTLR
                     currScope = function_;
                 }
                 else
-                    throw new SemanticException($"Unexisting function return type at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
+                    throw new SemanticException($"Unexisting function return type '{type}' at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
             }
             else
-                throw new SemanticException($"Repeating function name at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
+                throw new SemanticException($"Repeating function name '{name}' at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
         }
 
-        public override void ExitParameterDeclaration([NotNull] MiniCParser.ParameterDeclarationContext context)
+        public override void ExitParameterDeclaration([NotNull] ParameterDeclarationContext context)
         {
             var paramId = context.Identifier();
             string name = paramId.GetText();
@@ -92,32 +94,32 @@ namespace TestANTLR
                     currScope.AddSymbol(param_);
                 }
                 else
-                    throw new SemanticException($"Unexisting parameter type at {paramId.Symbol.Line}:{paramId.Symbol.Column}");
+                    throw new SemanticException($"Unexisting parameter type '{type}' at {paramId.Symbol.Line}:{paramId.Symbol.Column}");
             }
             else
-                throw new SemanticException($"Repeating parameter name at {paramId.Symbol.Line}:{paramId.Symbol.Column}");
+                throw new SemanticException($"Repeating parameter name '{name}' at {paramId.Symbol.Line}:{paramId.Symbol.Column}");
         }
 
-        public override void ExitFunctionHeader([NotNull] MiniCParser.FunctionHeaderContext context)
+        public override void ExitFunctionHeader([NotNull] FunctionHeaderContext context)
         {
             currScope = currScope.Parent;
         }
 
-        public override void EnterCompoundStatement([NotNull] MiniCParser.CompoundStatementContext context)
+        public override void EnterCompoundStatement([NotNull] CompoundStatementContext context)
         {
             LocalScope local = new LocalScope(currScope);
             Scopes.Put(context, local);
             currScope = local;
         }
 
-        public override void ExitCompoundStatement([NotNull] MiniCParser.CompoundStatementContext context)
+        public override void ExitCompoundStatement([NotNull] CompoundStatementContext context)
         {
             currScope = currScope.Parent;
         }
 
         // int a[1];
         // float b;
-        public override void EnterVarDeclaration([NotNull] MiniCParser.VarDeclarationContext context)
+        public override void EnterVarDeclaration([NotNull] VarDeclarationContext context)
         {
             var isArray = context.LeftBracket();
             if (isArray != null)
@@ -128,7 +130,7 @@ namespace TestANTLR
 
         // int a = 1;
         // float b[] = { a, 2.0 };
-        public override void EnterVarDefinition([NotNull] MiniCParser.VarDefinitionContext context)
+        public override void EnterVarDefinition([NotNull] VarDefinitionContext context)
         {
             var isArray = context.LeftBracket();
             var initializer = context.initializer().GetText();
@@ -153,7 +155,7 @@ namespace TestANTLR
 
         // const int a
         // char b
-        public override void ExitVarHeader([NotNull] MiniCParser.VarHeaderContext context)
+        public override void ExitVarHeader([NotNull] VarHeaderContext context)
         {
             var varId = context.Identifier();
             string name = varId.GetText();
@@ -174,13 +176,58 @@ namespace TestANTLR
                     currScope.AddSymbol(var_);
                 }
                 else
-                    throw new SemanticException($"Unexisting var type at {varId.Symbol.Line}:{varId.Symbol.Column}");
+                    throw new SemanticException($"Unexisting var type '{type}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
             }
             else
-                throw new SemanticException($"Repeating variable name at {varId.Symbol.Line}:{varId.Symbol.Column}");
+                throw new SemanticException($"Repeating variable name '{name}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
         }
 
-        public override void ExitCompilationUnit([NotNull] MiniCParser.CompilationUnitContext context)
+        ///// PostfixExpression
+
+        public override void ExitPrimaryExp([NotNull] PrimaryExpContext context)
+        {
+            Types.Put(context, Types.Get(context.children[0]));
+        }
+
+        public override void ExitArrayRead([NotNull] ArrayReadContext context)
+        {
+            
+        }
+
+        public override void ExitStructRead([NotNull] StructReadContext context)
+        {
+            var leftChild = context.children[0];
+            var leftChildType = Types.Get(leftChild);
+            if (leftChildType == null)
+                throw new SemanticException($"Bad struct field construction at {context.Start.Line}!");
+
+            var structSymbol = global.FindStruct(leftChildType);
+            if (structSymbol == null)
+                throw new SemanticException($"Try to get variable field of a non-struct type at line {context.Start.Line}!");
+
+            var memberId = context.Identifier();
+            var memberSymbol = structSymbol.GetSymbol(memberId.GetText());
+            if (memberSymbol != null)
+                Types.Put(context, memberSymbol.Type);
+            else
+                throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at {memberId.Symbol.Line}:{memberId.Symbol.Column}!");
+        }
+
+        ///// PrimaryExpression
+
+        public override void EnterVarRead([NotNull] VarReadContext context)
+        {
+            var varId = context.Identifier();
+            string name = varId.GetText();
+
+            var varSymbol = currScope.FindSymbol(name);
+            if (varSymbol != null)
+                Types.Put(context, varSymbol.Type);
+            else
+                throw new SemanticException($"Using an undefined variable '{name}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
+        }
+
+        public override void ExitCompilationUnit([NotNull] CompilationUnitContext context)
         {
             Console.WriteLine("Global done");
         }

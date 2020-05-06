@@ -1,6 +1,6 @@
 // Wow, super code
 struct s1 {
-	int a[1];
+	int a;
 };
 
 struct s {
@@ -9,11 +9,13 @@ struct s {
 	struct s1 s;
 };
 
-int a = 0;
+int c = 0;
 
 int main(const int a[])
 {
-	int a[] = {1};
-	float b = 1.1e1;
-	c.a[1.1] = 0;
+	//int a[] = {1};
+	//float b = 1.1e1;
+
+	struct s a;
+	int b = a.s.a[0];
 }
