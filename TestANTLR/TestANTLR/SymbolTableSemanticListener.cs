@@ -20,6 +20,7 @@ namespace TestANTLR
         public override void EnterCompilationUnit([NotNull] MiniCParser.CompilationUnitContext context)
         {
             global = new GlobalScope();
+            Scopes.Put(context, global);
             currScope = global;
         }
 
