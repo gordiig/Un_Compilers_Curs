@@ -1,8 +1,10 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TestANTLR.Scopes;
 
 namespace TestANTLR
 {
@@ -10,20 +12,21 @@ namespace TestANTLR
     {
         public static void Main(string[] args)
         {
+            SymbolType.AddTypeRange("void", "char", "int", "float");
+
             using (StreamReader file = new StreamReader("test.txt"))
             {
                 AntlrInputStream inputStream = new AntlrInputStream(file.ReadToEnd());
                 MiniCLexer testLexer = new MiniCLexer(inputStream);
-                //testLexer.AddErrorListener(ErrorListener.Instance);
+                testLexer.AddErrorListener(ErrorListenerLex.Instance);
                 CommonTokenStream commonTokenStream = new CommonTokenStream(testLexer);
                 MiniCParser testParser = new MiniCParser(commonTokenStream);
                 testParser.AddErrorListener(ErrorListener.Instance);
-                int aa = testParser.NumberOfSyntaxErrors;
-                commonTokenStream.Fill();
-                var b = commonTokenStream.GetTokens();
-                MiniCParser.CompilationUnitContext context = testParser.compilationUnit();
-                string a = context.ToStringTree(testParser);
-                var c = new ParseTreeWalker();
+                var tree = testParser.compilationUnit();
+
+                ParseTreeWalker walker = new ParseTreeWalker();
+                SymbolTableSemanticListener def = new SymbolTableSemanticListener();
+                walker.Walk(def, tree);
             }
         }
     }

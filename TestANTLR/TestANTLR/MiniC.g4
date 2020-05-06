@@ -33,7 +33,7 @@ functionDeclaration
 	;
 
 varDeclaration
-	:	varHeader Semi
+	:	varHeader (LeftBracket IntegerConstant RightBracket)? Semi
 	;
 
 structDeclaration
@@ -53,7 +53,7 @@ functionHeader
 	;
 
 varDefinition
-	:	varHeader assignmentOperator initializer Semi
+	:	varHeader (LeftBracket RightBracket)? assignmentOperator initializer Semi
 	;
 
 initializer
@@ -73,7 +73,7 @@ parameterDeclarationList
     ;
 
 parameterDeclaration
-    :   typeQualifier? typeSpecifier Identifier
+    :   typeQualifier? typeSpecifier Identifier (LeftBracket RightBracket)? 
     ;
 
 typeSpecifier 
@@ -82,7 +82,6 @@ typeSpecifier
     |   Int
     |   Float
     |   Struct Identifier
-	|	typeSpecifier LeftBracket RightBracket
     ;
 
 typeQualifier 
@@ -172,19 +171,19 @@ postfixExpression
     :   primaryExpression
     |   postfixExpression LeftBracket ternaryExpression RightBracket
 	|   postfixExpression LeftParen ternaryExpression* RightParen
-    |   postfixExpression Dot Identifier
+    |   postfixExpression Dot postfixExpression
     ;
 
 primaryExpression
     :   Identifier
-    |   Constant
+    |   constant
     |   LeftParen expression RightParen
     ;
 
 lValueExpression
 	:	Identifier
 	|	lValueExpression LeftBracket ternaryExpression RightBracket
-	|	lValueExpression Dot Identifier
+	|	lValueExpression Dot lValueExpression
 	;
 
 statement
@@ -222,6 +221,12 @@ assignmentOperator
 
 unaryOperator
     :   And | Star | Plus | Minus | Tilde | Not
+    ;
+
+constant
+    :   IntegerConstant
+    |   FloatingConstant
+    |   CharacterConstant
     ;
 
 /*
@@ -311,13 +316,6 @@ Digit
     :   [0-9]
     ;
 
-Constant
-    :   IntegerConstant
-    |   FloatingConstant
-    |   CharacterConstant
-    ;
-
-fragment
 IntegerConstant
     :   DecimalConstant
     |   OctalConstant
@@ -359,7 +357,6 @@ HexadecimalDigit
     :   [0-9a-fA-F]
     ;
 
-fragment
 FloatingConstant
     :   DecimalFloatingConstant
     ;
@@ -387,6 +384,7 @@ Sign
     :   '+' | '-'
     ;
 
+fragment
 DigitSequence
     :   Digit+
     ;
@@ -396,7 +394,6 @@ FloatingSuffix
     :   'f' | 'l' | 'F' | 'L'
     ;
 
-fragment
 CharacterConstant
     :   '\'' CCharSequence '\''
     ;
@@ -429,12 +426,12 @@ BlockComment
 
 Whitespace
     :   [ \t]+
-        -> skip
+        -> channel(HIDDEN)
     ;
 
 Newline
     :   (   '\r' '\n'?
         |   '\n'
         )
-        -> skip
+        -> channel(HIDDEN)
     ;
