@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TestANTLR.Generators;
 using TestANTLR.Scopes;
 
 namespace TestANTLR
@@ -14,7 +15,7 @@ namespace TestANTLR
         {
             SymbolType.AddTypeRange("void", "char", "int", "float");
 
-            using (StreamReader file = new StreamReader("test.txt"))
+            using (StreamReader file = new StreamReader("../../../test.txt"))
             {
                 AntlrInputStream inputStream = new AntlrInputStream(file.ReadToEnd());
                 MiniCLexer testLexer = new MiniCLexer(inputStream);

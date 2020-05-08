@@ -1,4 +1,4 @@
-grammar MiniC;
+grammar OldMiniC;
 
 /*
  * Parser Rules
@@ -101,7 +101,7 @@ assignmentExpression
     ;
 
 ternaryExpression
-    :   logicalOrExpression (Question ternaryExpression Colon ternaryExpression)?
+    :   logicalOrExpression (Question expression Colon ternaryExpression)?
     ;
 
 logicalOrExpression
@@ -168,21 +168,16 @@ unaryExpression
     ;
 
 postfixExpression
-    :   primaryExpression												#PrimaryExp
-    |   postfixExpression LeftBracket ternaryExpression RightBracket	#ArrayRead
-    |   postfixExpression Dot Identifier								#StructRead
-	|   Identifier LeftParen parameterList RightParen					#FunctionCall
+    :   primaryExpression
+    |   postfixExpression LeftBracket ternaryExpression RightBracket
+	|   postfixExpression LeftParen ternaryExpression* RightParen
+    |   postfixExpression Dot postfixExpression
     ;
 
-parameterList
-	:	ternaryExpression
-	|	parameterList Comma ternaryExpression
-	;
-
 primaryExpression
-    :   Identifier														#VarRead
-    |   constant														#ConstRead
-    |   LeftParen ternaryExpression RightParen							#Parens
+    :   Identifier
+    |   constant
+    |   LeftParen expression RightParen
     ;
 
 lValueExpression
@@ -204,19 +199,19 @@ expressionStatement
     ;
 
 ifStatement
-    :   If LeftParen ternaryExpression RightParen statement (Else statement)?
+    :   If LeftParen expression RightParen statement (Else statement)?
     ;
 
 iterationStatement
-    :   While LeftParen ternaryExpression RightParen statement
-    |   Do statement While LeftParen ternaryExpression RightParen Semi
-    |   For LeftParen expression? Semi ternaryExpression? Semi expression? RightParen statement
+    :   While LeftParen expression RightParen statement
+    |   Do statement While LeftParen expression RightParen Semi
+    |   For LeftParen expression? Semi expression? Semi expression? RightParen statement
     ;
 
 jumpStatement
     :   Continue Semi
     |   Break Semi
-    |   Return ternaryExpression? Semi
+    |   Return expression? Semi
     ;
 
 assignmentOperator
@@ -400,7 +395,12 @@ FloatingSuffix
     ;
 
 CharacterConstant
-    :   '\'' CChar '\''
+    :   '\'' CCharSequence '\''
+    ;
+
+fragment
+CCharSequence
+    :   CChar+
     ;
 
 fragment

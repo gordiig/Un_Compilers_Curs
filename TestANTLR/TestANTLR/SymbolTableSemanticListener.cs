@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TestANTLR.Exceptions;
+using TestANTLR.Generators;
 using TestANTLR.Scopes;
 
 namespace TestANTLR
@@ -19,6 +20,12 @@ namespace TestANTLR
 
         public override void EnterCompilationUnit([NotNull] MiniCParser.CompilationUnitContext context)
         {
+            Console.WriteLine("Code before semantics and globals:");
+            var a = new CompilationUnitCodeGenerator();
+            var text = new AsmCodeWriter();
+            text = a.GenerateCodeForContext(context, text);
+            Console.WriteLine(text.AllCode);
+            
             global = new GlobalScope();
             Scopes.Put(context, global);
             currScope = global;
@@ -183,6 +190,12 @@ namespace TestANTLR
         public override void ExitCompilationUnit([NotNull] MiniCParser.CompilationUnitContext context)
         {
             Console.WriteLine("Global done");
+            
+            Console.WriteLine("Code after semantics and globals:");
+            var a = new CompilationUnitCodeGenerator();
+            var text = new AsmCodeWriter();
+            text = a.GenerateCodeForContext(context, text);
+            Console.WriteLine(text.AllCode);
         }
     }
 }
