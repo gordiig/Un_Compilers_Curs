@@ -13,7 +13,7 @@ namespace TestANTLR.Scopes
 
         public StructSymbol FindStruct(SymbolType structName)
         {
-            if (Table.TryGetValue(structName.TypeName(), out ISymbol structSymbol))
+            if (Table.TryGetValue(structName.Name, out ISymbol structSymbol))
                 return (StructSymbol) structSymbol;
 
             return null;

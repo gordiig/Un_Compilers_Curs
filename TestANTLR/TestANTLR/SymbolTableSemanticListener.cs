@@ -1,4 +1,5 @@
-﻿using Antlr4.Runtime.Misc;
+﻿using Antlr4.Runtime;
+using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,7 @@ namespace TestANTLR
         private Scope currScope;
 
         private int currVarArraySize;
+        private bool isFunDefinition;
 
         public override void EnterCompilationUnit([NotNull] CompilationUnitContext context)
         {
@@ -47,6 +49,11 @@ namespace TestANTLR
             currScope = currScope.Parent;
         }
 
+        public override void EnterFunctionDefinition([NotNull] FunctionDefinitionContext context)
+        {
+            isFunDefinition = true;
+        }
+
         public override void EnterFunctionHeader([NotNull] FunctionHeaderContext context)
         {
             var functionId = context.Identifier();
@@ -64,7 +71,8 @@ namespace TestANTLR
                     currScope = function_;
                 }
                 else
-                    throw new SemanticException($"Unexisting function return type '{type}' at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
+                    throw new SemanticException($"Unexisting function return type '{type}' at " +
+                        $"{functionId.Symbol.Line}:{functionId.Symbol.Column}");
             }
             else
                 throw new SemanticException($"Repeating function name '{name}' at {functionId.Symbol.Line}:{functionId.Symbol.Column}");
@@ -81,16 +89,26 @@ namespace TestANTLR
                 SymbolType symbolType = SymbolType.GetType(type);
                 if (symbolType != null)
                 {
+                    if (symbolType.Name == "void")
+                        throw new SemanticException($"Void parameter definition at {paramId.Symbol.Line}:{paramId.Symbol.Column}!");
+
                     string typeQualifier = context.typeQualifier()?.GetText();
                     bool isConst = typeQualifier != null && typeQualifier == "const";
+                    symbolType.IsConst = isConst;
 
                     var isArray = context.LeftBracket();
                     if (isArray != null)
-                        currVarArraySize =  0;
+                    {
+                        symbolType.IsArray = true;
+                        currVarArraySize = 0;
+                    }
                     else
+                    {
+                        symbolType.IsArray = false;
                         currVarArraySize = -1;
+                    }
 
-                    VarSymbol param_ = new VarSymbol(name, symbolType, isConst, currVarArraySize);
+                    VarSymbol param_ = new VarSymbol(name, symbolType, currVarArraySize);
                     currScope.AddSymbol(param_);
                 }
                 else
@@ -102,7 +120,11 @@ namespace TestANTLR
 
         public override void ExitFunctionHeader([NotNull] FunctionHeaderContext context)
         {
-            currScope = currScope.Parent;
+            // Чтобы следующий compoundStatement имел в родителе заголовок данной функции
+            if (!isFunDefinition)
+                currScope = currScope.Parent;
+            else
+                isFunDefinition = false;
         }
 
         public override void EnterCompoundStatement([NotNull] CompoundStatementContext context)
@@ -114,6 +136,9 @@ namespace TestANTLR
 
         public override void ExitCompoundStatement([NotNull] CompoundStatementContext context)
         {
+            if (currScope.Parent is FunctionSymbol)
+                currScope = currScope.Parent;
+
             currScope = currScope.Parent;
         }
 
@@ -153,6 +178,29 @@ namespace TestANTLR
             }
         }
 
+        public override void ExitVarDefinition([NotNull] VarDefinitionContext context)
+        {
+            var rValueType = Types.Get(context.initializer());
+
+            var lValueType = Types.Get(context.varHeader());
+            if (IsStruct(lValueType.Name))
+                throw new SemanticException($"Can't initialize structure at {context.Start.Line}:{context.Start.Column}!");
+
+            if (!lValueType.IsEqual(rValueType) && IsStruct(rValueType.Name))
+                throw new SemanticException($"Can't initialize with structure at {context.Start.Line}:{context.Start.Column}!");
+
+            string operation = context.assignmentOperator().GetText();
+
+            if (IsFloat(rValueType) && (operation == "<<=" || operation == ">>=" || operation == "%=" || operation == "&=" ||
+                    operation == "^=" || operation == "|="))
+                throw new SemanticException($"Can't use '{operation}' with float value on the right " +
+                    $"at {context.Start.Line}:{context.Start.Column}!");
+            if (lValueType.IsArray && operation != "=")
+                throw new SemanticException($"Can't use '{operation}' with array at {context.Start.Line}:{context.Start.Column}!");
+
+            Types.Put(context, lValueType);
+        }
+
         // const int a
         // char b
         public override void ExitVarHeader([NotNull] VarHeaderContext context)
@@ -166,56 +214,505 @@ namespace TestANTLR
                 SymbolType symbolType = SymbolType.GetType(type);
                 if (symbolType != null)
                 {
+                    if (symbolType.Name == "void")
+                        throw new SemanticException($"Void variable or member definition at {varId.Symbol.Line}:{varId.Symbol.Column}!");
+
                     if (currScope is StructSymbol)
-                        if (((StructSymbol) currScope).Name == symbolType.TypeName())
+                        if (((StructSymbol) currScope).Name == symbolType.Name)
                             throw new SemanticException($"Recursive struct declaration at {varId.Symbol.Line}:{varId.Symbol.Column}");
+
+                    if (currVarArraySize == -1)
+                        symbolType.IsArray = false;
+                    else
+                        symbolType.IsArray = true;
 
                     string typeQualifier = context.typeQualifier()?.GetText();
                     bool isConst = typeQualifier != null && typeQualifier == "const";
-                    VarSymbol var_ = new VarSymbol(name, symbolType, isConst, currVarArraySize);
+                    symbolType.IsConst = isConst;
+
+                    VarSymbol var_ = new VarSymbol(name, symbolType, currVarArraySize);
                     currScope.AddSymbol(var_);
+                    Types.Put(context, symbolType);
                 }
                 else
                     throw new SemanticException($"Unexisting var type '{type}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
             }
             else
-                throw new SemanticException($"Repeating variable name '{name}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
+                throw new SemanticException($"Repeating variable or member name '{name}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
         }
 
-        ///// PostfixExpression
+        #region Initializer
+
+        public override void ExitInitializer([NotNull] InitializerContext context)
+        {
+            // ternaryExpression
+            if (context.ChildCount == 1)
+            {
+                var initType = Types.Get(context.ternaryExpression());
+                if (!IsNumberType(initType))
+                    throw new SemanticException($"Can't initialize with array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, initType);
+            }
+            // LeftBrace initializerList RightBrace
+            else
+            {
+                // Копируем, чтобы элементы массива остались не массивами
+                var initListType = SymbolType.GetType(Types.Get(context.initializerList()).Name);
+                initListType.IsArray = true;
+
+                Types.Put(context, initListType);
+            }
+        }
+
+        public override void ExitInitializerList([NotNull] InitializerListContext context)
+        {
+            // initializer
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.initializer()));
+            }
+            // initializerList Comma initializer
+            else
+            {
+                var lType = Types.Get(context.initializerList());
+                var rType = Types.Get(context.initializer());
+
+                var biggerType = SymbolType.GetBigger(lType, rType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        #endregion
+
+        #region Expressions
+
+        public override void ExitExpression([NotNull] ExpressionContext context)
+        {
+            Types.Put(context, Types.Get(context.assignmentExpression()));
+        }
+
+        public override void ExitAssignmentExpression([NotNull] AssignmentExpressionContext context)
+        {
+            // ternaryExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.ternaryExpression()));
+            }
+            // lValueExpression assignmentOperator ternaryExpression
+            else
+            {
+                // Запрет целиком присваивать массивы и структуры
+                var rValueType = Types.Get(context.ternaryExpression());
+                if (!IsNumberType(rValueType))
+                    throw new SemanticException($"RValue can't be array or structure at {context.Start.Line}:{context.Start.Column}!");
+
+                var lValueType = Types.Get(context.lValueExpression());
+                if (!IsNumberType(lValueType))
+                    throw new SemanticException($"LValue can't be array or structure at {context.Start.Line}:{context.Start.Column}!");
+
+                string operation = context.assignmentOperator().GetText();
+                if (IsFloat(rValueType) && (operation == "<<=" || operation == ">>=" || operation == "%=" || operation == "&=" ||
+                    operation == "^=" || operation == "|="))
+                    throw new SemanticException($"Can't use '{operation}' with float value on the right " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, lValueType);
+            }
+        }
+
+        public override void ExitTernaryExpression([NotNull] TernaryExpressionContext context)
+        {
+            // logicalOrExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.logicalOrExpression()));
+            }
+            // logicalOrExpression Question ternaryExpression Colon ternaryExpression
+            else
+            {
+                var logExpType = Types.Get(context.logicalOrExpression());
+                if (!IsNumberType(logExpType))
+                    throw new SemanticException($"Ternary condition can't be array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var ternaryFirstType = Types.Get(context.ternaryExpression(0));
+                var ternarySecondType = Types.Get(context.ternaryExpression(1));
+
+                SymbolType resultType = ternaryFirstType;
+                if (IsNumberType(ternaryFirstType) && IsNumberType(ternarySecondType))
+                    resultType = SymbolType.GetBigger(ternaryFirstType, ternarySecondType);
+                else
+                {
+                    if (!ternaryFirstType.IsEqual(ternarySecondType))
+                        throw new SemanticException($"Ternary operation different return types at " +
+                            $"{context.Start.Line}:{context.Start.Column}!");
+                }
+
+                Types.Put(context, resultType);
+            }
+        }
+
+        public override void ExitLogicalOrExpression([NotNull] LogicalOrExpressionContext context)
+        {
+            // logicalAndExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.logicalAndExpression()));
+            }
+            // logicalOrExpression OrOr logicalAndExpression
+            else
+            {
+                var leftChildType = Types.Get(context.logicalOrExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.logicalAndExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, SymbolType.GetType("int"));
+            }
+        }
+
+        public override void ExitLogicalAndExpression([NotNull] LogicalAndExpressionContext context)
+        {
+            // inclusiveOrExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.inclusiveOrExpression()));
+            }
+            // logicalAndExpression AndAnd inclusiveOrExpression
+            else
+            {
+                var leftChildType = Types.Get(context.logicalAndExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.inclusiveOrExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, SymbolType.GetType("int"));
+            }
+        }
+
+        public override void ExitInclusiveOrExpression([NotNull] InclusiveOrExpressionContext context)
+        {
+            // exclusiveOrExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.exclusiveOrExpression()));
+            }
+            // inclusiveOrExpression Or exclusiveOrExpression
+            else
+            {
+                var leftChildType = Types.Get(context.inclusiveOrExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.exclusiveOrExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitExclusiveOrExpression([NotNull] ExclusiveOrExpressionContext context)
+        {
+            // andExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.andExpression()));
+            }
+            // exclusiveOrExpression Caret andExpression
+            else
+            {
+                var leftChildType = Types.Get(context.exclusiveOrExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.andExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitAndExpression([NotNull] AndExpressionContext context)
+        {
+            // equalityExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.equalityExpression()));
+            }
+            // andExpression And equalityExpression
+            else
+            {
+                var leftChildType = Types.Get(context.andExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.equalityExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitEqualityExpression([NotNull] EqualityExpressionContext context)
+        {
+            // relationalExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.relationalExpression()));
+            }
+            // equalityExpression eqOper relationalExpression
+            else
+            {
+                var leftChildType = Types.Get(context.equalityExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.relationalExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, SymbolType.GetType("int"));
+            }
+        }
+
+        public override void ExitRelationalExpression([NotNull] RelationalExpressionContext context)
+        {
+            // shiftExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.shiftExpression()));
+            }
+            // relationalExpression relOper shiftExpression
+            else
+            {
+                var leftChildType = Types.Get(context.relationalExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.shiftExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, SymbolType.GetType("int"));
+            }
+        }
+
+        public override void ExitShiftExpression([NotNull] ShiftExpressionContext context)
+        {
+            // additiveExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.additiveExpression()));
+            }
+            // shiftExpression shiftOper additiveExpression
+            else
+            {
+                var leftChildType = Types.Get(context.shiftExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.additiveExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitAdditiveExpression([NotNull] AdditiveExpressionContext context)
+        {
+            // multiplicativeExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.multiplicativeExpression()));
+            }
+            // additiveExpression addOper multiplicativeExpression
+            else
+            {
+                var leftChildType = Types.Get(context.additiveExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.multiplicativeExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitMultiplicativeExpression([NotNull] MultiplicativeExpressionContext context)
+        {
+            // unaryExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.unaryExpression()));
+            }
+            // multiplicativeExpression multOper unaryExpression
+            else
+            {
+                var operation = context.children[1].GetText();
+
+                var leftChildType = Types.Get(context.multiplicativeExpression());
+                if (!IsNumberType(leftChildType))
+                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(leftChildType) && operation == "%")
+                    throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
+
+                var rightChildType = Types.Get(context.unaryExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType) && operation == "%")
+                    throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
+
+                var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
+                Types.Put(context, biggerType);
+            }
+        }
+
+        public override void ExitUnaryExpression([NotNull] UnaryExpressionContext context)
+        {
+            // postfixExpression
+            if (context.ChildCount == 1)
+            {
+                Types.Put(context, Types.Get(context.postfixExpression()));
+            }
+            // unaryOperator unaryExpression
+            else
+            {
+                string operation = context.unaryOperator().GetText();
+
+                var rightChildType = Types.Get(context.unaryExpression());
+                if (!IsNumberType(rightChildType))
+                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(rightChildType) && operation == "~")
+                    throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
+
+                Types.Put(context, rightChildType);
+            }
+        }
+
+        #region PostfixExpression
 
         public override void ExitPrimaryExp([NotNull] PrimaryExpContext context)
         {
-            Types.Put(context, Types.Get(context.children[0]));
+            Types.Put(context, Types.Get(context.primaryExpression()));
         }
 
         public override void ExitArrayRead([NotNull] ArrayReadContext context)
         {
-            
+            // Слева от [] должен быть массив
+            var leftChild = context.postfixExpression();
+            var leftChildType = Types.Get(leftChild);
+            if (!leftChildType.IsArray)
+                throw new SemanticException($"Variable or member is not an array at {context.Start.Line}:{context.Start.Column}!");
+
+            // Индекс должен быть целым числом
+            var arrayIndexType = Types.Get(context.ternaryExpression());
+            if (!IsNumberType(arrayIndexType))
+                throw new SemanticException($"Array index can't be array or structure at {context.Start.Line}:{context.Start.Column}!");
+            if (IsFloat(arrayIndexType))
+                throw new SemanticException($"Array index can't be float value at {context.Start.Line}:{context.Start.Column}!");
+
+            // Ложим в типы "разыменованый" массив
+            Types.Put(context, SymbolType.GetType(leftChildType.Name));
         }
 
         public override void ExitStructRead([NotNull] StructReadContext context)
         {
-            var leftChild = context.children[0];
+            // Слева от . должна быть структура
+            var leftChild = context.postfixExpression();
             var leftChildType = Types.Get(leftChild);
-            if (leftChildType == null)
-                throw new SemanticException($"Bad struct field construction at {context.Start.Line}!");
-
             var structSymbol = global.FindStruct(leftChildType);
             if (structSymbol == null)
-                throw new SemanticException($"Try to get variable field of a non-struct type at line {context.Start.Line}!");
+                throw new SemanticException($"Try to get variable field of a non-struct type at " +
+                    $"{context.Start.Line}:{context.Start.Column}!");
 
+            // Если слева от . массив структур, то он обязательно сначала должен быть "разыменован"
+            if (leftChildType.IsArray)
+                throw new SemanticException($"Try to get field of array of structs at {context.Start.Line}:{context.Start.Column}!");
+
+            // Проверям, что такое поле в структуре точно есть
             var memberId = context.Identifier();
             var memberSymbol = structSymbol.GetSymbol(memberId.GetText());
             if (memberSymbol != null)
                 Types.Put(context, memberSymbol.Type);
             else
-                throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at {memberId.Symbol.Line}:{memberId.Symbol.Column}!");
+                throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                    $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
         }
 
-        ///// PrimaryExpression
+        public override void ExitFunctionCall([NotNull] FunctionCallContext context)
+        {
+            
+        }
 
-        public override void EnterVarRead([NotNull] VarReadContext context)
+        #endregion
+
+        #region PrimaryExpression
+
+        public override void ExitVarRead([NotNull] VarReadContext context)
         {
             var varId = context.Identifier();
             string name = varId.GetText();
@@ -227,9 +724,207 @@ namespace TestANTLR
                 throw new SemanticException($"Using an undefined variable '{name}' at {varId.Symbol.Line}:{varId.Symbol.Column}!");
         }
 
+        public override void ExitConstRead([NotNull] ConstReadContext context)
+        {
+            Types.Put(context, Types.Get(context.constant()));
+        }
+
+        public override void ExitParens([NotNull] ParensContext context)
+        {
+            Types.Put(context, Types.Get(context.ternaryExpression()));
+        }
+
+        #endregion
+
+        public override void ExitLValueExpression([NotNull] LValueExpressionContext context)
+        {
+            // Identifier
+            if (context.ChildCount == 1)
+            {
+                var varId = context.Identifier();
+                string name = varId.GetText();
+
+                var varSymbol = currScope.FindSymbol(name);
+                if (varSymbol != null)
+                {
+                    if (varSymbol.Type.IsConst)
+                        throw new SemanticException($"Can't change const value at {varId.Symbol.Line}:{varId.Symbol.Column}!");
+
+                    Types.Put(context, varSymbol.Type);
+                }
+                else
+                    throw new SemanticException($"Using an undefined lvalue variable '{name}' at " +
+                        $"{varId.Symbol.Line}:{varId.Symbol.Column}!");
+            }
+            // lValueExpression LeftBracket ternaryExpression RightBracket
+            else if (context.ChildCount == 4)
+            {
+                // Слева от [] должен быть массив
+                var leftChild = context.lValueExpression();
+                var leftChildType = Types.Get(leftChild);
+                if (!leftChildType.IsArray)
+                    throw new SemanticException($"Variable or member is not an array at {context.Start.Line}:{context.Start.Column}!");
+
+                // Индекс должен быть целым числом
+                var arrayIndexType = Types.Get(context.ternaryExpression());
+                if (!IsNumberType(arrayIndexType))
+                    throw new SemanticException($"Array index can't be array or structure at {context.Start.Line}:{context.Start.Column}!");
+                if (IsFloat(arrayIndexType))
+                    throw new SemanticException($"Array index can't be float value at {context.Start.Line}:{context.Start.Column}!");
+
+                // Ложим в типы "разыменованый" массив
+                Types.Put(context, SymbolType.GetType(leftChildType.Name));
+            }
+            // lValueExpression Dot Identifier
+            else
+            {
+                // Слева от . должна быть структура
+                var leftChild = context.lValueExpression();
+                var leftChildType = Types.Get(leftChild);
+                var structSymbol = global.FindStruct(leftChildType);
+                if (structSymbol == null)
+                    throw new SemanticException($"Try to set variable field of a non-struct type at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                // Если слева от . массив структур, то он обязательно сначала должен быть "разыменован"
+                if (leftChildType.IsArray)
+                    throw new SemanticException($"Try to get field of array of structs at " +
+                        $"{context.Start.Line}:{context.Start.Column}!");
+
+                // Проверям, что такое поле в структуре точно есть
+                var memberId = context.Identifier();
+                var memberSymbol = structSymbol.GetSymbol(memberId.GetText());
+                if (memberSymbol != null)
+                {
+                    if (memberSymbol.Type.IsConst)
+                        throw new SemanticException($"Can't change const value at {memberId.Symbol.Line}:{memberId.Symbol.Column}!");
+
+                    Types.Put(context, memberSymbol.Type);
+                }
+                else
+                    throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                        $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
+            }
+        }
+
+        #endregion
+
+        #region Statements
+
+        public override void ExitIfStatement([NotNull] IfStatementContext context)
+        {
+            var conditionType = Types.Get(context.ternaryExpression());
+            if (!IsNumberType(conditionType))
+                throw new SemanticException($"If condition can't be array or structure at " +
+                    $"{context.Start.Line}:{context.Start.Column}!");
+        }
+
+        public override void ExitIterationStatement([NotNull] IterationStatementContext context)
+        {
+            var conditionType = Types.Get(context.ternaryExpression());
+            if (!IsNumberType(conditionType))
+                throw new SemanticException($"Iteration condition can't be array or structure at " +
+                    $"{context.Start.Line}:{context.Start.Column}!");
+        }
+
+        public override void ExitJumpStatement([NotNull] JumpStatementContext context)
+        {
+            // Return
+            if (context.Return() != null)
+            {
+                var returnExp = context.ternaryExpression();
+
+                var function = FindFunctionSymbolScope(currScope);
+                if (function == null)
+                    throw new SemanticException($"No function for return at {context.Start.Line}:{context.Start.Column}!");
+
+                var functionType = function.Type;
+                if (functionType.Name == "void" && returnExp != null)
+                    throw new SemanticException($"Must return 'void' at {context.Start.Line}:{context.Start.Column}!");
+                else if (returnExp != null)
+                {
+                    var returnType = Types.Get(returnExp);
+                    if (returnType.IsArray)
+                        throw new SemanticException($"Can't return array at {context.Start.Line}:{context.Start.Column}!");
+
+                    if (IsStruct(returnType.Name) && IsStruct(functionType.Name))
+                        if (!returnType.IsEqual(functionType))
+                            throw new SemanticException($"Return type don't match to the function one at " +
+                                $"{context.Start.Line}:{context.Start.Column}!");
+                }
+
+                Types.Put(context, functionType);
+            }
+            // Break || Continue
+            else
+            {
+                var cycleContext = FindClosestCycle(context);
+                if (cycleContext == null)
+                    throw new SemanticException($"'{context.children[0].GetText()}' outside of cycle block " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
+            }
+        }
+
+        #endregion
+
+        public override void ExitConstant([NotNull] ConstantContext context)
+        {
+            if (context.IntegerConstant() != null)
+                Types.Put(context, SymbolType.GetType("int"));
+            else if (context.FloatingConstant() != null)
+                Types.Put(context, SymbolType.GetType("float"));
+            else if (context.CharacterConstant() != null)
+                Types.Put(context, SymbolType.GetType("char"));
+        }
+
         public override void ExitCompilationUnit([NotNull] CompilationUnitContext context)
         {
             Console.WriteLine("Global done");
         }
+
+        #region Private Methods
+
+        private bool IsStruct(string type)
+        {
+            return type.StartsWith("struct");
+        }
+
+        private bool IsNumberType(SymbolType type)
+        {
+            return !type.IsArray && !IsStruct(type.Name) && type.Name != "void";
+        }
+
+        private bool IsFloat(SymbolType type)
+        {
+            return type.Name == "float";
+        }
+
+        private FunctionSymbol FindFunctionSymbolScope(Scope currScope)
+        {
+            if (currScope is FunctionSymbol)
+                return currScope as FunctionSymbol;
+            else
+            {
+                if (currScope.Parent != null)
+                    return FindFunctionSymbolScope(currScope.Parent);
+
+                return null;
+            }
+        }
+
+        private IterationStatementContext FindClosestCycle(RuleContext context)
+        {
+            if (context is IterationStatementContext)
+                return context as IterationStatementContext;
+            else
+            {
+                if (context.Parent is FunctionDefinitionContext)
+                    return null;
+
+                return FindClosestCycle(context.Parent);
+            }
+        }
+
+        #endregion
     }
 }

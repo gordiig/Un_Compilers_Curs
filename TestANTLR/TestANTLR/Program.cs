@@ -12,6 +12,7 @@ namespace TestANTLR
     {
         public static void Main(string[] args)
         {
+            // Order matters
             SymbolType.AddTypeRange("void", "char", "int", "float");
 
             using (StreamReader file = new StreamReader("test.txt"))

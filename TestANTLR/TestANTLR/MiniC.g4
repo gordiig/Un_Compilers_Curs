@@ -18,18 +18,13 @@ externalDeclaration
     ;
 
 declaration 
-    :   functionDeclaration
-	|	varDeclaration
+    :   varDeclaration
 	|	structDeclaration
     ;
 
 definition
 	:	functionDefinition
 	|	varDefinition
-	;
-
-functionDeclaration
-	:	functionHeader Semi
 	;
 
 varDeclaration
@@ -59,7 +54,6 @@ varDefinition
 initializer
     :   ternaryExpression
     |   LeftBrace initializerList RightBrace
-    |   LeftBrace initializerList Comma RightBrace
     ;
 
 initializerList
@@ -101,7 +95,7 @@ assignmentExpression
     ;
 
 ternaryExpression
-    :   logicalOrExpression (Question expression Colon ternaryExpression)?
+    :   logicalOrExpression (Question ternaryExpression Colon ternaryExpression)?
     ;
 
 logicalOrExpression
@@ -171,7 +165,7 @@ postfixExpression
     :   primaryExpression												#PrimaryExp
     |   postfixExpression LeftBracket ternaryExpression RightBracket	#ArrayRead
     |   postfixExpression Dot Identifier								#StructRead
-	|   Identifier LeftParen parameterList RightParen					#FunctionCall
+	|   Identifier LeftParen parameterList RightParen					#FunctionCall  
     ;
 
 parameterList
@@ -188,7 +182,7 @@ primaryExpression
 lValueExpression
 	:	Identifier
 	|	lValueExpression LeftBracket ternaryExpression RightBracket
-	|	lValueExpression Dot lValueExpression
+	|	lValueExpression Dot Identifier
 	;
 
 statement
@@ -204,19 +198,19 @@ expressionStatement
     ;
 
 ifStatement
-    :   If LeftParen expression RightParen statement (Else statement)?
+    :   If LeftParen ternaryExpression RightParen statement (Else statement)?
     ;
 
 iterationStatement
-    :   While LeftParen expression RightParen statement
-    |   Do statement While LeftParen expression RightParen Semi
-    |   For LeftParen expression? Semi expression? Semi expression? RightParen statement
+    :   While LeftParen ternaryExpression RightParen statement
+    |   Do statement While LeftParen ternaryExpression RightParen Semi
+    |   For LeftParen expression? Semi ternaryExpression? Semi expression? RightParen statement
     ;
 
 jumpStatement
     :   Continue Semi
     |   Break Semi
-    |   Return expression? Semi
+    |   Return ternaryExpression? Semi
     ;
 
 assignmentOperator
@@ -225,7 +219,7 @@ assignmentOperator
     ;
 
 unaryOperator
-    :   And | Star | Plus | Minus | Tilde | Not
+    :   Plus | Minus | Tilde | Not
     ;
 
 constant
@@ -400,12 +394,7 @@ FloatingSuffix
     ;
 
 CharacterConstant
-    :   '\'' CCharSequence '\''
-    ;
-
-fragment
-CCharSequence
-    :   CChar+
+    :   '\'' CChar '\''
     ;
 
 fragment
