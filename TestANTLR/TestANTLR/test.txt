@@ -1,12 +1,14 @@
 // Wow, super code
 struct s1 {
 	int a[1];
+	int b;
 };
 
 struct s {
-	int a;
+	int a[1];
 	const float b;
 	struct s1 s;
+	struct s1 s1[2];
 };
 
 int globalADecl;

@@ -8,14 +8,14 @@ namespace TestANTLR.Scopes
     {
         public string Name { get; }
         public SymbolType Type { get; } 
-        public bool IsConst { get; }
         public int ArraySize { get; }
 
-        public VarSymbol(string name, SymbolType type, bool isConst = false, int arraySize = -1)
+        public int StackOffset { get; set; }
+
+        public VarSymbol(string name, SymbolType type, int arraySize = -1)
         {
             Name = name;
             Type = type;
-            IsConst = isConst;
             ArraySize = arraySize;
         }
     }

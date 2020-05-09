@@ -8,8 +8,9 @@ namespace TestANTLR.Scopes
     {
         public string Name { get; }
         public SymbolType Type { get; }
-        public bool IsConst { get; } = false;
         public int ArraySize { get; } = -1;
+
+        public int StackOffset { get; set; }
 
         public FunctionSymbol(string name, SymbolType type, Scope parent) : base(parent)
         {

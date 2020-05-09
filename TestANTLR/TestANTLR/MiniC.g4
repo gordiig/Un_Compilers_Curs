@@ -18,18 +18,13 @@ externalDeclaration
     ;
 
 declaration 
-    :   functionDeclaration
-	|	varDeclaration
+    :   varDeclaration
 	|	structDeclaration
     ;
 
 definition
 	:	functionDefinition
 	|	varDefinition
-	;
-
-functionDeclaration
-	:	functionHeader Semi
 	;
 
 varDeclaration
@@ -59,7 +54,6 @@ varDefinition
 initializer
     :   ternaryExpression
     |   LeftBrace initializerList RightBrace
-    |   LeftBrace initializerList Comma RightBrace
     ;
 
 initializerList
@@ -171,7 +165,7 @@ postfixExpression
     :   primaryExpression												#PrimaryExp
     |   postfixExpression LeftBracket ternaryExpression RightBracket	#ArrayRead
     |   postfixExpression Dot Identifier								#StructRead
-	|   Identifier LeftParen parameterList RightParen					#FunctionCall
+	|   Identifier LeftParen parameterList? RightParen					#FunctionCall  
     ;
 
 parameterList
@@ -188,7 +182,7 @@ primaryExpression
 lValueExpression
 	:	Identifier
 	|	lValueExpression LeftBracket ternaryExpression RightBracket
-	|	lValueExpression Dot lValueExpression
+	|	lValueExpression Dot Identifier
 	;
 
 statement

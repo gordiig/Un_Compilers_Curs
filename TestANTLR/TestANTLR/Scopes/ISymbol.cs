@@ -8,7 +8,8 @@ namespace TestANTLR.Scopes
     {
         string Name { get; }
         SymbolType Type { get; }
-        bool IsConst { get; }
         int ArraySize { get; }
+
+        int StackOffset { get; set; }
     }
 }
