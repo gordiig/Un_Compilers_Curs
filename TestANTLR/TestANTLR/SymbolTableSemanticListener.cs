@@ -19,7 +19,6 @@ namespace TestANTLR
         private Scope currScope;
 
         private int currVarArraySize;
-        private bool isFunDefinition;
 
         public override void EnterCompilationUnit([NotNull] CompilationUnitContext context)
         {
@@ -48,6 +47,8 @@ namespace TestANTLR
         {
             currScope = currScope.Parent;
         }
+
+        private bool isFunDefinition;
 
         public override void EnterFunctionDefinition([NotNull] FunctionDefinitionContext context)
         {
@@ -186,7 +187,7 @@ namespace TestANTLR
             if (IsStruct(lValueType.Name))
                 throw new SemanticException($"Can't initialize structure at {context.Start.Line}:{context.Start.Column}!");
 
-            if (!lValueType.IsEqual(rValueType) && IsStruct(rValueType.Name))
+            if (!lValueType.IsFullEqual(rValueType) && IsStruct(rValueType.Name))
                 throw new SemanticException($"Can't initialize with structure at {context.Start.Line}:{context.Start.Column}!");
 
             string operation = context.assignmentOperator().GetText();
@@ -306,7 +307,8 @@ namespace TestANTLR
                 // Запрет целиком присваивать массивы и структуры
                 var rValueType = Types.Get(context.ternaryExpression());
                 if (!IsNumberType(rValueType))
-                    throw new SemanticException($"RValue can't be array or structure at {context.Start.Line}:{context.Start.Column}!");
+                    throw new SemanticException($"RValue can't be array or structure or void " +
+                        $"at {context.Start.Line}:{context.Start.Column}!");
 
                 var lValueType = Types.Get(context.lValueExpression());
                 if (!IsNumberType(lValueType))
@@ -334,7 +336,7 @@ namespace TestANTLR
             {
                 var logExpType = Types.Get(context.logicalOrExpression());
                 if (!IsNumberType(logExpType))
-                    throw new SemanticException($"Ternary condition can't be array or structure at " +
+                    throw new SemanticException($"Ternary condition can't be array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var ternaryFirstType = Types.Get(context.ternaryExpression(0));
@@ -345,7 +347,7 @@ namespace TestANTLR
                     resultType = SymbolType.GetBigger(ternaryFirstType, ternarySecondType);
                 else
                 {
-                    if (!ternaryFirstType.IsEqual(ternarySecondType))
+                    if (!ternaryFirstType.IsFullEqual(ternarySecondType))
                         throw new SemanticException($"Ternary operation different return types at " +
                             $"{context.Start.Line}:{context.Start.Column}!");
                 }
@@ -366,12 +368,12 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.logicalOrExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.logicalAndExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
@@ -390,12 +392,12 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.logicalAndExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.inclusiveOrExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
@@ -414,7 +416,7 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.inclusiveOrExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
@@ -422,7 +424,7 @@ namespace TestANTLR
 
                 var rightChildType = Types.Get(context.exclusiveOrExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
@@ -445,7 +447,7 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.exclusiveOrExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
@@ -453,7 +455,7 @@ namespace TestANTLR
 
                 var rightChildType = Types.Get(context.andExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
@@ -476,7 +478,7 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.andExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
@@ -484,7 +486,7 @@ namespace TestANTLR
 
                 var rightChildType = Types.Get(context.equalityExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
@@ -507,12 +509,12 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.equalityExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.relationalExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
@@ -531,12 +533,12 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.relationalExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.shiftExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
@@ -555,7 +557,7 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.shiftExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
@@ -563,7 +565,7 @@ namespace TestANTLR
 
                 var rightChildType = Types.Get(context.additiveExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the right " +
@@ -586,12 +588,12 @@ namespace TestANTLR
             {
                 var leftChildType = Types.Get(context.additiveExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.multiplicativeExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
@@ -613,14 +615,14 @@ namespace TestANTLR
 
                 var leftChildType = Types.Get(context.multiplicativeExpression());
                 if (!IsNumberType(leftChildType))
-                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{operation}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType) && operation == "%")
                     throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
 
                 var rightChildType = Types.Get(context.unaryExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{operation}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType) && operation == "%")
                     throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
@@ -644,7 +646,7 @@ namespace TestANTLR
 
                 var rightChildType = Types.Get(context.unaryExpression());
                 if (!IsNumberType(rightChildType))
-                    throw new SemanticException($"Can't use '{operation}' on array or structure at " +
+                    throw new SemanticException($"Can't use '{operation}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(rightChildType) && operation == "~")
                     throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
@@ -703,9 +705,62 @@ namespace TestANTLR
                     $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
         }
 
+        private Stack<FunctionSymbol> currFunctionCalls = new Stack<FunctionSymbol>();
+        private Stack<int> currParameterIndex = new Stack<int>();
+
+        public override void EnterFunctionCall([NotNull] FunctionCallContext context)
+        {
+            string functionName = context.Identifier().GetText();
+            var functionSymbol = currScope.FindSymbol(functionName);
+            if (functionSymbol == null || !(functionSymbol is FunctionSymbol))
+                throw new SemanticException($"Can't find function '{functionName}' at {context.Start.Line}:{context.Start.Column}!");
+
+            currFunctionCalls.Push((FunctionSymbol) functionSymbol);
+            currParameterIndex.Push(0);
+        }
+
+        public override void ExitParameterList([NotNull] ParameterListContext context)
+        {
+            var currFunction = currFunctionCalls.Peek();
+            int currParameter = currParameterIndex.Pop();
+
+            if (currParameter >= currFunction.Table.Count)
+                throw new SemanticException($"Too much parameters in the function call at {context.Start.Line}:{context.Start.Column}!");
+
+            var paramType = Types.Get(context.ternaryExpression());
+            var awaitedParamType = currFunction.GetNumberedSymbol(currParameter).Type;
+
+            if (!IsNumberType(paramType) || !IsNumberType(awaitedParamType))
+            {
+                if (!paramType.IsEqual(awaitedParamType))
+                {
+                    string awaitedArray = awaitedParamType.IsArray ? "[]" : "";
+                    string array = paramType.IsArray ? "[]" : "";
+                    throw new SemanticException($"Wrong {currParameter + 1} parameter type in the function call at " +
+                        $"{context.Start.Line}:{context.Start.Column}, " +
+                        $"awaited {awaitedParamType.Name}{awaitedArray} - recieved {paramType.Name}{array}!");
+                }
+            }
+
+            if (paramType.IsConst && !awaitedParamType.IsConst)
+                throw new SemanticException($"Parameter {currParameter + 1} is const when awaited not const in the function call" +
+                    $"at {context.Start.Line}:{context.Start.Column}!");
+
+            Types.Put(context, awaitedParamType);
+
+            currParameter++;
+            currParameterIndex.Push(currParameter);
+        }
+
         public override void ExitFunctionCall([NotNull] FunctionCallContext context)
         {
-            
+            var currFunction = currFunctionCalls.Pop();
+            int currParameter = currParameterIndex.Pop();
+
+            if (currParameter != currFunction.Table.Count)
+                throw new SemanticException($"Wrong parameters count in the function call at {context.Start.Line}:{context.Start.Column}!");
+
+            Types.Put(context, currFunction.Type);
         }
 
         #endregion
@@ -839,16 +894,15 @@ namespace TestANTLR
                     throw new SemanticException($"No function for return at {context.Start.Line}:{context.Start.Column}!");
 
                 var functionType = function.Type;
-                if (functionType.Name == "void" && returnExp != null)
-                    throw new SemanticException($"Must return 'void' at {context.Start.Line}:{context.Start.Column}!");
-                else if (returnExp != null)
+
+                if (returnExp != null)
                 {
                     var returnType = Types.Get(returnExp);
                     if (returnType.IsArray)
                         throw new SemanticException($"Can't return array at {context.Start.Line}:{context.Start.Column}!");
 
-                    if (IsStruct(returnType.Name) && IsStruct(functionType.Name))
-                        if (!returnType.IsEqual(functionType))
+                    if (!IsNumberType(returnType) || !IsNumberType(functionType))
+                        if (!returnType.IsFullEqual(functionType))
                             throw new SemanticException($"Return type don't match to the function one at " +
                                 $"{context.Start.Line}:{context.Start.Column}!");
                 }

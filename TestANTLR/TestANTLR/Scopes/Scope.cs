@@ -59,5 +59,10 @@ namespace TestANTLR.Scopes
 
             return null;
         }
+
+        public ISymbol GetNumberedSymbol(int i)
+        {
+            return Table.ElementAt(i).Value;
+        }
     }
 }

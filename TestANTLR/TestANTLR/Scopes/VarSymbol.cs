@@ -10,6 +10,8 @@ namespace TestANTLR.Scopes
         public SymbolType Type { get; } 
         public int ArraySize { get; }
 
+        public int StackOffset { get; set; }
+
         public VarSymbol(string name, SymbolType type, int arraySize = -1)
         {
             Name = name;

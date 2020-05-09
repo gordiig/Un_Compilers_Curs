@@ -165,7 +165,7 @@ postfixExpression
     :   primaryExpression												#PrimaryExp
     |   postfixExpression LeftBracket ternaryExpression RightBracket	#ArrayRead
     |   postfixExpression Dot Identifier								#StructRead
-	|   Identifier LeftParen parameterList RightParen					#FunctionCall  
+	|   Identifier LeftParen parameterList? RightParen					#FunctionCall  
     ;
 
 parameterList

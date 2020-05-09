@@ -83,9 +83,14 @@ namespace TestANTLR.Scopes
             return indexA > indexB ? a : b;
         }
 
-        public bool IsEqual(SymbolType second)
+        public bool IsFullEqual(SymbolType second)
         {
             return Name == second.Name && IsArray == second.IsArray && IsConst == second.IsConst;
+        }
+
+        public bool IsEqual(SymbolType second)
+        {
+            return Name == second.Name && IsArray == second.IsArray;
         }
     }
 }

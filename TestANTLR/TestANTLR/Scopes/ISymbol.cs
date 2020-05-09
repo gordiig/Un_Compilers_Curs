@@ -9,5 +9,7 @@ namespace TestANTLR.Scopes
         string Name { get; }
         SymbolType Type { get; }
         int ArraySize { get; }
+
+        int StackOffset { get; set; }
     }
 }
