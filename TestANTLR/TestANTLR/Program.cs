@@ -43,11 +43,11 @@ namespace TestANTLR
                     return;
                 }
 
+                ParseTreeWalker walker = new ParseTreeWalker();
+                SymbolTableSemanticListener semantic = new SymbolTableSemanticListener();
                 try
                 {
-                    ParseTreeWalker walker = new ParseTreeWalker();
-                    SymbolTableSemanticListener def = new SymbolTableSemanticListener();
-                    walker.Walk(def, tree);
+                    walker.Walk(semantic, tree);
                 }
                 catch (SemanticException e)
                 {

@@ -1,6 +1,7 @@
 ﻿namespace TestANTLR
 {
-    partial class MiniCLexer
+    public partial class MiniCLexer
     {
+
     }
 }

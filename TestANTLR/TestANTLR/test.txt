@@ -30,7 +30,7 @@ void main(int a)
 	// 3
 	// int b = a.s1[1].a[0];
 	struct s a;
-	int b[] = {1.1};
+	int b[] = {1, 1.1, 1.0f};
 	float c1 = 1;
 	
 	//c1 = main() + 1;
