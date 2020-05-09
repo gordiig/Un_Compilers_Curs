@@ -36,7 +36,7 @@ namespace TestANTLR
                 {
                     foreach (var error in syntaxErrorListener.ErrorMessages)
                     {
-                        Console.WriteLine($"{filename} | Semantic error:  {error}");
+                        Console.WriteLine($"{filename} | Syntax error:  {error}");
                     }
 
                     Console.ReadKey();
@@ -58,6 +58,7 @@ namespace TestANTLR
                 }
             }
 
+            Console.WriteLine("All ok!");
             Console.ReadKey();
         }
     }
