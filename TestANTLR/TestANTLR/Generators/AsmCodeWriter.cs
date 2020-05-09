@@ -343,6 +343,12 @@ namespace TestANTLR.Generators
             LastAssignedRegister = lhs;
         }
 
+        public void AddRegisterModRegister(string destRegister, string r1, string r2)
+        {
+            _code += $"\n\t{destRegister} = modwrap({r1}, {r2});";
+            LastAssignedRegister = destRegister;
+        }
+
         public void AddNegateRegister(string destRegister, string sourceRegister)
         {
             _code += $"\n\t{destRegister} = neg({sourceRegister});";
