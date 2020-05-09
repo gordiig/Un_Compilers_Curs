@@ -933,7 +933,7 @@ namespace TestANTLR
 
         public override void ExitCompilationUnit([NotNull] CompilationUnitContext context)
         {
-            Console.WriteLine("Global done");
+            //Console.WriteLine("Global done");
         }
 
         #region Private Methods
