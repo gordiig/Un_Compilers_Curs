@@ -972,6 +972,9 @@ namespace TestANTLR
                 }
 
                 Types.Put(context, functionType);
+
+                if (returnExp != null)
+                    MakeConversion(context, returnExp);
             }
             // Break || Continue
             else
@@ -1051,6 +1054,8 @@ namespace TestANTLR
             if (currType.Name != childType.Name)
             {
                 Conversion.Put(child, currType);
+                Console.WriteLine($"({currType.Name}) {((ParserRuleContext) child).GetText()} " +
+                    $"at {((ParserRuleContext)child).Start.Line}:{((ParserRuleContext)child).Start.Column}");
             }
         }
 
