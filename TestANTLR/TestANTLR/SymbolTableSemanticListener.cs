@@ -782,7 +782,8 @@ namespace TestANTLR
             if (currParameter >= currFunction.Table.Count)
                 throw new SemanticException($"Too much parameters in the function call at {context.Start.Line}:{context.Start.Column}!");
 
-            var paramType = Types.Get(context.ternaryExpression());
+            var param = context.ternaryExpression();
+            var paramType = Types.Get(param);
             var awaitedParamType = currFunction.GetNumberedSymbol(currParameter).Type;
 
             if (!IsNumberType(paramType) || !IsNumberType(awaitedParamType))
@@ -802,6 +803,8 @@ namespace TestANTLR
                     $"at {context.Start.Line}:{context.Start.Column}!");
 
             Types.Put(context, awaitedParamType);
+
+            MakeConversion(context, param);
 
             currParameter++;
             currParameterIndex.Push(currParameter);
