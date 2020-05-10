@@ -1,6 +1,7 @@
 using System.Linq;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
+using TestANTLR.Generators.Declarations;
 using TestANTLR.Generators.Definitions;
 
 namespace TestANTLR.Generators

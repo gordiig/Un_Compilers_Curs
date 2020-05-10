@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Exceptions;
 using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
@@ -12,12 +13,19 @@ namespace TestANTLR.Generators.Expressions
             var ternaryExpr = lvalExprCtx.ternaryExpression();
             var lvalExpr = lvalExprCtx.lValueExpression();
             // Variable name (a ...)
-            if (identifier != null)
+            if (identifier != null && lvalExprCtx.Dot() == null)
             {
                 currentCode.AddComment($"Getting variable \"{identifier.GetText()}\" for lvalue");
+                
+                // Получаем тип из таблицы
+                var curScope = currentCode.GetCurrentScope();
+                var symbol = curScope.FindSymbol(identifier.GetText()) as VarSymbol;
+                if (symbol == null) 
+                    throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
+
+                // Запись в регистр
                 var register = currentCode.GetFreeRegister();
-                var type = SymbolType.GetType("int");    // TODO: TYPING
-                currentCode.AddVariableToRegisterReading(identifier.GetText(), type, register);
+                currentCode.AddVariableToRegisterReading(symbol, register);
             }
             // Braces (a[] ...)
             else if (ternaryExpr != null)
@@ -33,26 +41,47 @@ namespace TestANTLR.Generators.Expressions
                 var lvalExprGen = new LValueExpressionGenerator();
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
-                var arrayVarName = currentCode.LastReferencedVariable;
+                var arrayVar = currentCode.LastReferencedVariable;
                 
                 // Вычисление оффсета для массива
-                // TODO MULTIPLYING lvalExprGen * type.size
                 currentCode.AddComment("Getting indexed value for lvalue");
-                var offsetRegister = "TODO OFFSET REGISTER";
-                
+                var intType = SymbolType.GetType("int");
+                var varSizeRegister = currentCode.GetFreeRegister();
+                currentCode.AddValueToRegisterAssign(varSizeRegister, arrayVar.Type.Size.ToString(), intType);
+                var offsetRegister = currentCode.GetFreeRegister();
+                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister, intType);
+
                 // Само действие
                 var lhsRegister = currentCode.GetFreeRegister();
-                var type = SymbolType.GetType("int");    // TODO: TYPING
-                currentCode.AddArrayToRegisterReading(arrayVarName, type, lhsRegister,  offsetRegister);
+                currentCode.AddVariableToRegisterReadingWithOffset(arrayVar, lhsRegister, offsetRegister);
                 
                 // Чистка регистров
+                currentCode.FreeRegister(varSizeRegister);
                 currentCode.FreeRegister(inBracesValueRegister);
                 currentCode.FreeRegister(lValueRegister);
             }
             // Dot (a.x ...)
             else
             {
-                // TODO STRUCTS
+                currentCode.AddComment($"Getting dot value (.{identifier.GetText()})");
+                
+                // Вычисление lvalue
+                var lvalExprGen = new LValueExpressionGenerator();
+                currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
+                var valueRegister = currentCode.LastAssignedRegister;
+                var prevVariableInDotChain = currentCode.LastReferencedVariable;
+                var prevVariableInDotChainType = prevVariableInDotChain.Type;
+
+                // Вычисление offset для переменной структуры
+                var structSymbol = currentCode.GlobalScope.FindStruct(prevVariableInDotChainType);
+                var structOffset = structSymbol.VariableOffsetFromStartAddress(identifier.GetText());
+                
+                // Получаем значение
+                var resultRegister = currentCode.GetFreeRegister();
+                currentCode.AddVariableToRegisterReadingWithOffset(prevVariableInDotChain, resultRegister, structOffset.ToString());
+                
+                // Чиска регистров
+                currentCode.FreeRegister(valueRegister);
             }
             
             return currentCode;

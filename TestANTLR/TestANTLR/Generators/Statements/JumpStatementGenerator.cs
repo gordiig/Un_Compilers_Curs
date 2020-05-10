@@ -42,7 +42,7 @@ namespace TestANTLR.Generators.Statements
                 }
                 // Сам возврат
                 currentCode.AddComment("Return operator");
-                var currentFuncName = currentCode.FuncStack.Peek();
+                var currentFuncName = currentCode.GetCurrentFunc();
                 currentCode.AddReturn(currentFuncName);
             }
             

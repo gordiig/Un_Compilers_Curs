@@ -17,8 +17,10 @@ namespace TestANTLR
         {
             // Order matters
             SymbolType.AddTypeRange("void", "char", "int", "float");
+            
+            string filename = "../../../test.txt";
 
-            using (StreamReader file = new StreamReader("../../../test.txt"))
+            using (StreamReader file = new StreamReader(filename))
             {
                 AntlrInputStream inputStream = new AntlrInputStream(file.ReadToEnd());
 

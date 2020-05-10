@@ -1,6 +1,6 @@
 // Wow, super code
 struct s1 {
-	int a[1];
+	int a[2];
 	int b;
 };
 
@@ -10,6 +10,8 @@ struct s {
 	struct s1 s;
 	struct s1 s1[2];
 };
+
+struct s g;
 
 int globalADecl;
 const int globalConstADecl;

@@ -62,9 +62,15 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Записываем в переменную
                 var destVar = currentCode.LastReferencedVariable;
-                // TODO: Возможно еще нужно хранить последний оффсет -- если лвалью массив, то мб сейчас присваивание будет первому элту
-                currentCode.AddRegisterToVariableWriting(destVar, type, lValueRegister);
-                
+                if (destVar.Type.IsArray || destVar.Type.IsStructType())
+                {
+                    currentCode.AddRegisterToVariableWritingWithOffset(destVar, lValueRegister,
+                        currentCode.LastAssignedOffsetRegister);
+                    currentCode.FreeRegister(currentCode.LastAssignedOffsetRegister);
+                }
+                else
+                    currentCode.AddRegisterToVariableWriting(destVar, lValueRegister);
+                    
                 // Чистка регистров
                 currentCode.FreeRegister(lValueRegister);
                 currentCode.FreeRegister(rValueRegister);

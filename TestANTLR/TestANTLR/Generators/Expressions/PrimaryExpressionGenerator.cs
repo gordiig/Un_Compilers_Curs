@@ -18,16 +18,15 @@ namespace TestANTLR.Generators.Expressions
             {
                 currentCode.AddComment($"Getting variable \"{identifier.GetText()}\"");
                 
-                // Достаем переменную из скоупа и получаем ее тип
+                // Достаем переменную из скоупа
                 var currentScope = currentCode.GetCurrentScope();
-                var symbol = currentScope.FindSymbol(identifier.GetText());
+                var symbol = currentScope.FindSymbol(identifier.GetText()) as VarSymbol;
                 if (symbol == null)
                     throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
-                var type = symbol.Type;
-                
+
                 // Запись в регистр
                 var destRegister = currentCode.GetFreeRegister();
-                currentCode.AddVariableToRegisterReading(identifier.GetText(), type, destRegister);
+                currentCode.AddVariableToRegisterReading(symbol, destRegister);
             }
             // Constant
             else if (context is MiniCParser.ConstReadContext constant)

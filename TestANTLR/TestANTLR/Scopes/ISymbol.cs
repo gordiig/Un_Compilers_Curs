@@ -10,6 +10,10 @@ namespace TestANTLR.Scopes
         SymbolType Type { get; }
         int ArraySize { get; }
 
-        int StackOffset { get; set; }
+        string BaseAddress { get; set; }
+
+        bool IsGlobal { get; set; }
+
+        int Size { get; }
     }
 }

@@ -1,4 +1,6 @@
 using Antlr4.Runtime;
+using TestANTLR.Generators.Declarations;
+using TestANTLR.Generators.Definitions;
 
 namespace TestANTLR.Generators.Statements
 {

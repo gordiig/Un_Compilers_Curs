@@ -25,15 +25,10 @@ namespace TestANTLR
 
         public override void EnterCompilationUnit([NotNull] CompilationUnitContext context)
         {
-            Console.WriteLine("Code before semantics and globals:");
-            var a = new CompilationUnitCodeGenerator();
-            var text = new AsmCodeWriter();
-            text = a.GenerateCodeForContext(context, text);
-            Console.WriteLine(text.AllCode);
-            
             global = new GlobalScope();
             Scopes.Put(context, global);
             currScope = global;
+            SymbolType.GlobalScope = global;
         }
 
         public override void EnterStructDeclaration([NotNull] StructDeclarationContext context)

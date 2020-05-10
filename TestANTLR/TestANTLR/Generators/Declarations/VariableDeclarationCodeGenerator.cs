@@ -1,17 +1,26 @@
 using Antlr4.Runtime;
 using TestANTLR.Scopes;
 
-namespace TestANTLR.Generators
+namespace TestANTLR.Generators.Declarations
 {
     public class VariableDeclarationCodeGenerator: BaseCodeGenerator
     {
         public override AsmCodeWriter GenerateCodeForContext(ParserRuleContext context, AsmCodeWriter currentCode)
         {
             var varDeclarationContext = context as MiniCParser.VarDeclarationContext;
+            
+            // Получаем данные о переменной
             var header = varDeclarationContext.varHeader();
-            var type = SymbolType.GetType(header.typeSpecifier().GetText());
             var identifier = header.Identifier().GetText();
-            currentCode.AddVariable(identifier, type);
+            var currentScope = currentCode.GetCurrentScope();
+            var symbol = currentScope.GetSymbol(identifier) as VarSymbol;
+
+            // Если текущий скоуп глобальный, то и добавляем в код как глобальную переменную;
+            if (currentScope.IsGlobal())
+                currentCode.AddGlobalVariable(symbol);
+            else
+                 currentCode.AddEmptyLocalVariable(symbol);
+
             return currentCode;
         }
     }

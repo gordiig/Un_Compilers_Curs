@@ -29,19 +29,23 @@ namespace TestANTLR.Generators.Expressions
                 var postfixExpressionGen = new PostfixExpressionGenerator();
                 currentCode = postfixExpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
                 var variableValueRegister = currentCode.LastAssignedRegister;
-                var variableName = currentCode.LastReferencedVariable;
+                var arrayVariable = currentCode.LastReferencedVariable;
                 
                 // Вычисление смещения
-                // TODO: GETTING TYPES AND MULTIPLICATION
                 currentCode.AddComment("Getting indexed value");
-                var offsetRegister = "TODO OFFSET REGISTER";
-                
+                var intType = SymbolType.GetType("int");
+                var varSizeRegister = currentCode.GetFreeRegister();
+                currentCode.AddValueToRegisterAssign(varSizeRegister, arrayVariable.Type.Size.ToString(), intType);
+                var offsetRegister = currentCode.GetFreeRegister();
+                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister, intType);
+
                 // Получение значения по индексу
                 var lhsRegister = currentCode.GetFreeRegister();
-                var type = SymbolType.GetType("int"); // TODO: TYPING
-                currentCode.AddArrayToRegisterReading(variableName, type, lhsRegister, offsetRegister);
+                currentCode.AddVariableToRegisterReadingWithOffset(arrayVariable, lhsRegister, offsetRegister);
                 
                 // Освобождение регистров
+                currentCode.FreeRegister(offsetRegister);
+                currentCode.FreeRegister(varSizeRegister);
                 currentCode.FreeRegister(variableValueRegister);
                 currentCode.FreeRegister(inBracesValueRegister);
             }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using TestANTLR.Scopes;
@@ -14,11 +15,12 @@ namespace TestANTLR.Generators
         
         public string Code { get => _code; }
         public string Variables { get => _variables; }
-        public string AllCode { get => "\t.section\t.data" + Variables + "\n\n\t.section\t.text" + Code + "\n"; }
+        public string AllCode { get => "\t.section\t.data" + Variables + "\n\n\t.section\t.text\n" + Code + "\n"; }
 
-        public AsmCodeWriter(ParseTreeProperty<Scope> skopes)
+        public AsmCodeWriter(ParseTreeProperty<Scope> skopes, GlobalScope globalScope)
         {
             scopes = skopes;
+            GlobalScope = globalScope;
             AvaliableRegisters = new bool[27];
             for (int i = 0; i < AvaliableRegisters.Length; i++)
                 AvaliableRegisters[i] = true;
@@ -27,10 +29,10 @@ namespace TestANTLR.Generators
         #region Registers work
         
         public string LastAssignedRegister = "r0";
-        public string LastReferencedVariable = "";
+        public VarSymbol LastReferencedVariable = new VarSymbol("None", SymbolType.GetType("int"));
+        public string LastAssignedOffsetRegister = "";
         public Stack<string> LoopStack = new Stack<string>();
         public Stack<string> IfStack = new Stack<string>();
-        public Stack<string> FuncStack = new Stack<string>();
         public bool[] AvaliableRegisters;
         public bool[] AvaliablePredicateRegisters = new []{ true, true, true, true };
 
@@ -50,6 +52,8 @@ namespace TestANTLR.Generators
 
         public void FreeRegister(string register)
         {
+            if (register == LastAssignedOffsetRegister)
+                LastAssignedOffsetRegister = "";
             var intStr = register.Remove(0, 1);
             var idx = int.Parse(intStr);
             AvaliableRegisters[idx] = true;
@@ -86,6 +90,37 @@ namespace TestANTLR.Generators
         
         #endregion
 
+        #region Functions and stack offset stack
+
+        private Stack<string> funcStack = new Stack<string>();
+        private Stack<int> variablesOffsetStack = new Stack<int>();
+        public GlobalScope GlobalScope { get; }
+
+        public void PushFunc(string funcName)
+        {
+            funcStack.Push(funcName);
+            variablesOffsetStack.Push(0);
+        }
+
+        public (string, int) PopFunc()
+        {
+            var poppedFunc = funcStack.Pop();
+            var poppedOffset = variablesOffsetStack.Pop();
+            return (poppedFunc, poppedOffset);
+        }
+
+        public string GetCurrentFunc()
+        {
+            return funcStack.Peek();
+        }
+
+        public int GetCurrentStackOffset()
+        {
+            return variablesOffsetStack.Peek();
+        }
+
+        #endregion
+        
         #region Scopes work
 
         private ParseTreeProperty<Scope> scopes { get; }
@@ -110,7 +145,7 @@ namespace TestANTLR.Generators
         #endregion
         
         // Writing to file
-        public void WriteToFile(string filename)
+        public void WriteToFile(string filename = "../../../generated.S")
         {
             using (var writer = new StreamWriter(File.Open(filename, FileMode.Create)))
             {
@@ -119,14 +154,60 @@ namespace TestANTLR.Generators
             }
         }
 
-        #region Adding variables
-        
-        public void AddVariable(string name, SymbolType type, string value = "0")
+        #region Adding global variables
+
+        public void AddGlobalVariable(VarSymbol symbol)
         {
-            _variables += $"\n{name}:\n\t.{type.Name}\t{value}";
+            symbol.IsGlobal = true;
+            symbol.BaseAddress = symbol.Name;
+            addGlobalVariableRecursive(symbol.Name, symbol);
         }
 
-        public void AddEmptyArray(string name, SymbolType type, int capacity)
+        private void addGlobalVariableRecursive(string name, ISymbol symbol)
+        {
+            var defaultTypes = new string[] {"char", "int", "float"};
+            if (defaultTypes.Contains(symbol.Type.Name))
+            {
+                if (symbol.Type.IsArray)
+                    addGlobalEmptyArray(name, symbol.Type, symbol.ArraySize);
+                else
+                    addGlobalVariable(name, symbol.Type);
+            }
+            else
+            {
+                _code += $"\n{name}:";
+                var structSymbol = GlobalScope.FindStruct(symbol.Type);
+                if (symbol.Type.IsArray)
+                {
+                    for (int i = 0; i < symbol.ArraySize; i++)
+                    {
+                        _code += $"\n{name}_{i}:";
+                        foreach (var symKeyValue in structSymbol.Table)
+                        {
+                            var symName = symKeyValue.Key;
+                            var sym = symKeyValue.Value;
+                            addGlobalVariableRecursive($"{name}_{symbol.Type.Name}_{symName}_{i}", sym);
+                        }   
+                    }
+                }
+                else
+                {
+                    foreach (var symKeyValue in structSymbol.Table)
+                    {
+                        var symName = symKeyValue.Key;
+                        var sym = symKeyValue.Value;
+                        addGlobalVariableRecursive($"{name}_{symbol.Type.Name}_{symName}", sym);
+                    }   
+                }
+            }
+        }
+
+        private void addGlobalVariable(string name, SymbolType type)
+        {
+            _variables += $"\n{name}:\n\t.{type.Name}\t0";
+        }
+
+        public void addGlobalEmptyArray(string name, SymbolType type, int capacity)
         {
             var header = $"\n{name}:\n\t.{type.Name} ";
             for (int i = 0; i < capacity; i++)
@@ -138,11 +219,76 @@ namespace TestANTLR.Generators
             _variables += header;
         }
 
-        public void AddArray(string name, SymbolType type, string values)
+        #endregion
+
+        #region Adding local variables
+
+        public int AddEmptyLocalVariable(VarSymbol symbol)
         {
-            _variables += $"\n{name}:\n\t.{type.Name} {values}";
+            var currentOffset = variablesOffsetStack.Pop();
+
+            symbol.IsGlobal = false;
+            symbol.BaseAddress = currentOffset.ToString();
+            currentOffset = addLocalVariable(symbol, currentOffset);
+
+            variablesOffsetStack.Push(currentOffset);
+            return currentOffset;
         }
-        
+
+        private int addLocalVariable(ISymbol symbol, int currentOffset)
+        {
+            var defaultTypes = new string[] {"char", "int", "float"};
+            // Если стандартный тип
+            if (defaultTypes.Contains(symbol.Type.Name))
+            {
+                var memFunc = symbol.Type.MemFunc;
+                // Если массив
+                if (symbol.Type.IsArray)
+                {
+                    for (int i = 0; i < symbol.ArraySize; i++)
+                    {
+                        _code += $"\n\t{memFunc}(SP + #{currentOffset}) = #0;";
+                        currentOffset += symbol.Type.Size;
+                    }   
+                }
+                // Если одно значение
+                else
+                {
+                    _code += $"\n\t{memFunc}(SP + #{currentOffset}) = #0;";
+                    currentOffset += symbol.Type.Size;
+                }
+            }
+            // Если структура
+            else
+            {
+                var structSymbol = GlobalScope.FindStruct(symbol.Type);
+                // Если массив
+                if (symbol.Type.IsArray)
+                {
+                    for (int i = 0; i < symbol.ArraySize; i++)
+                    {
+                        foreach (var symKeyValue in structSymbol.Table)
+                        {
+                            var sym = symKeyValue.Value;
+                            currentOffset = addLocalVariable(sym, currentOffset);
+                        }
+                    }
+                }
+                // Если одна структура
+                else
+                {
+                    foreach (var symKeyValue in structSymbol.Table)
+                    {
+                        var sym = symKeyValue.Value;
+                        currentOffset = addLocalVariable(sym, currentOffset);
+                    }
+                }
+            }
+
+            return currentOffset;
+        }
+
+
         #endregion
         
         #region Adding function labels
@@ -151,7 +297,7 @@ namespace TestANTLR.Generators
             var label = $"func_{name}_start";
             _code += $"\n{label}:";
             AddAllocateStackFrame4000();
-            FuncStack.Push(name);
+            PushFunc(name);
         }
 
         public void AddFunctionEnd(string name)
@@ -159,7 +305,7 @@ namespace TestANTLR.Generators
             var label = $"func_{name}_end";
             _code += $"\n{label}:";
             _code += $"\n\tdealloc_return;";
-            FuncStack.Pop();
+            PopFunc();
         }
 
         public void AddReturn(string funcName)
@@ -273,47 +419,59 @@ namespace TestANTLR.Generators
         #endregion
 
         #region Read-write variables to register
-        public void AddVariableToRegisterReading(string variableName, SymbolType type, string register)
+        public void AddVariableToRegisterReading(VarSymbol variable, string register)
         {
             var memRegister = GetFreeRegister();
-            var memFunc = type.MemFunc;
-            _code += $"\n\t{memRegister} = ##{variableName};";
+            var memFunc = variable.Type.MemFunc;
+            if (variable.IsGlobal)
+                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
+            else
+                _code += $"\n\t{memRegister} = add(SP, #{variable.BaseAddress})";
             _code += $"\n\t{register} = {memFunc}({memRegister});";
             LastAssignedRegister = register;
-            LastReferencedVariable = variableName;
+            LastReferencedVariable = variable;
             FreeRegister(memRegister);
         }
 
-        public void AddRegisterToVariableWriting(string variableName, SymbolType type, string register)
+        public void AddRegisterToVariableWriting(VarSymbol variable, string register)
         {
             var memRegister = GetFreeRegister();
-            var memFunc = type.MemFunc;
-            _code += $"\n\t{memRegister} = ##{variableName};";
+            var memFunc = variable.Type.MemFunc;
+            if (variable.IsGlobal)
+                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
+            else
+                _code += $"\n\t{memRegister} = add(SP, #{variable.BaseAddress})";
             _code += $"\n\t{memFunc}({memRegister}) = {register};";
-            LastReferencedVariable = variableName;
+            LastReferencedVariable = variable;
             FreeRegister(memRegister);
         }
 
-        public void AddArrayToRegisterReading(string variableName, SymbolType type, string register, string offset)
+        public void AddVariableToRegisterReadingWithOffset(VarSymbol variable, string register, string offset)
         {
-            // Offset ВСЕГДА РЕГИСТР ИЗ-ЗА УМНОЖЕНИЯ ???
             var memRegister = GetFreeRegister();
-            var memFunc = type.MemFunc;
-            _code += $"\n\t{memRegister} = ##{variableName};";
+            var memFunc = variable.Type.MemFunc;
+            if (variable.IsGlobal)
+                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
+            else
+                _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
             _code += $"\n\t{register} = {memFunc}({memRegister} + {offset});";
             LastAssignedRegister = register;
-            LastReferencedVariable = variableName;
+            LastReferencedVariable = variable;
+            LastAssignedOffsetRegister = offset;
             FreeRegister(memRegister);
         }
 
-        public void AddRegisterToArrayWriting(string variableName, SymbolType type, string register, string offset)
+        public void AddRegisterToVariableWritingWithOffset(VarSymbol variable, string register, string offset)
         {
-            // ТО ЖЕ САМОЕ ДЛЯ Offset
             var memRegister = GetFreeRegister();
-            var memFunc = type.MemFunc;
-            _code += $"\n\t{memRegister} = ##{variableName};";
+            var memFunc = variable.Type.MemFunc;
+            if (variable.IsGlobal)
+                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
+            else
+                _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
             _code += $"\n\t{memFunc}({memRegister} + {offset}) = {register};";
-            LastReferencedVariable = variableName;
+            LastReferencedVariable = variable;
+            LastAssignedOffsetRegister = offset;
             FreeRegister(memRegister);
         }
 
