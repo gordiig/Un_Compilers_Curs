@@ -48,7 +48,7 @@ functionHeader
 	;
 
 varDefinition
-	:	varHeader (LeftBracket RightBracket)? assignmentOperator initializer Semi
+	:	varHeader (LeftBracket RightBracket)? Assign initializer Semi
 	;
 
 initializer

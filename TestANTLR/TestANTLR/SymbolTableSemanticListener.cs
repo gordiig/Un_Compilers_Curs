@@ -167,7 +167,7 @@ namespace TestANTLR
                 if (!initializer.Contains('{') && !initializer.Contains('}'))
                     throw new SemanticException($"Bad array initializing at {isArray.Symbol.Line}:{isArray.Symbol.Column}!");
 
-                currVarArraySize = initializer.Split().Length;
+                currVarArraySize = initializer.Split(',').Length;
             }
             else
             {
@@ -191,15 +191,6 @@ namespace TestANTLR
 
             if (!lValueType.IsFullEqual(rValueType) && IsStruct(rValueType.Name))
                 throw new SemanticException($"Can't initialize with structure at {context.Start.Line}:{context.Start.Column}!");
-
-            string operation = context.assignmentOperator().GetText();
-
-            if (IsFloat(rValueType) && (operation == "<<=" || operation == ">>=" || operation == "%=" || operation == "&=" ||
-                    operation == "^=" || operation == "|="))
-                throw new SemanticException($"Can't use '{operation}' with float value on the right " +
-                    $"at {context.Start.Line}:{context.Start.Column}!");
-            if (lValueType.IsArray && operation != "=")
-                throw new SemanticException($"Can't use '{operation}' with array at {context.Start.Line}:{context.Start.Column}!");
 
             Types.Put(context, lValueType);
 
