@@ -1,6 +1,9 @@
-﻿namespace TestANTLR
+﻿using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
+
+namespace TestANTLR
 {
-    partial class MiniCParser
+    public partial class MiniCParser : Parser
     {
     }
 }

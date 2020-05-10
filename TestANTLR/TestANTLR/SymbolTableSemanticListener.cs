@@ -14,12 +14,14 @@ namespace TestANTLR
     public class SymbolTableSemanticListener : MiniCBaseListener
     {
         public ParseTreeProperty<Scope> Scopes { get; set; } = new ParseTreeProperty<Scope>();
-        public ParseTreeProperty<SymbolType> Types { get; set; } = new ParseTreeProperty<SymbolType>();
+        public ParseTreeProperty<SymbolType> Types { get; } = new ParseTreeProperty<SymbolType>();
+        public ParseTreeProperty<SymbolType> Conversion { get; } = new ParseTreeProperty<SymbolType>();
 
         private GlobalScope global;
         private Scope currScope;
 
         private int currVarArraySize;
+        private SymbolType arrayInitType;
 
         public override void EnterCompilationUnit([NotNull] CompilationUnitContext context)
         {
@@ -207,6 +209,8 @@ namespace TestANTLR
                 throw new SemanticException($"Can't use '{operation}' with array at {context.Start.Line}:{context.Start.Column}!");
 
             Types.Put(context, lValueType);
+
+            MakeConversion(context, context.initializer());
         }
 
         // const int a
@@ -230,9 +234,14 @@ namespace TestANTLR
                             throw new SemanticException($"Recursive struct declaration at {varId.Symbol.Line}:{varId.Symbol.Column}");
 
                     if (currVarArraySize == -1)
+                    {
                         symbolType.IsArray = false;
+                    }
                     else
+                    {
                         symbolType.IsArray = true;
+                        arrayInitType = SymbolType.GetType(symbolType.Name);
+                    }
 
                     string typeQualifier = context.typeQualifier()?.GetText();
                     bool isConst = typeQualifier != null && typeQualifier == "const";
@@ -284,11 +293,9 @@ namespace TestANTLR
             // initializerList Comma initializer
             else
             {
-                var lType = Types.Get(context.initializerList());
-                var rType = Types.Get(context.initializer());
+                Types.Put(context, arrayInitType);
 
-                var biggerType = SymbolType.GetBigger(lType, rType);
-                Types.Put(context, biggerType);
+                MakeConversion(context, context.initializer());
             }
         }
 
@@ -328,6 +335,8 @@ namespace TestANTLR
                         $"at {context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, lValueType);
+
+                MakeConversion(context, context.ternaryExpression());
             }
         }
 
@@ -346,8 +355,10 @@ namespace TestANTLR
                     throw new SemanticException($"Ternary condition can't be array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var ternaryFirstType = Types.Get(context.ternaryExpression(0));
-                var ternarySecondType = Types.Get(context.ternaryExpression(1));
+                var ternaryFirst = context.ternaryExpression(0);
+                var ternarySecond = context.ternaryExpression(1);
+                var ternaryFirstType = Types.Get(ternaryFirst);
+                var ternarySecondType = Types.Get(ternarySecond);
 
                 SymbolType resultType = ternaryFirstType;
                 if (IsNumberType(ternaryFirstType) && IsNumberType(ternarySecondType))
@@ -360,6 +371,9 @@ namespace TestANTLR
                 }
 
                 Types.Put(context, resultType);
+
+                MakeConversion(context, ternaryFirst);
+                MakeConversion(context, ternarySecond);
             }
         }
 
@@ -373,17 +387,22 @@ namespace TestANTLR
             // logicalOrExpression OrOr logicalAndExpression
             else
             {
-                var leftChildType = Types.Get(context.logicalOrExpression());
+                var leftChild = context.logicalOrExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.logicalAndExpression());
+                var rightChild = context.logicalAndExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -397,17 +416,22 @@ namespace TestANTLR
             // logicalAndExpression AndAnd inclusiveOrExpression
             else
             {
-                var leftChildType = Types.Get(context.logicalAndExpression());
+                var leftChild = context.logicalAndExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.inclusiveOrExpression());
+                var rightChild = context.inclusiveOrExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -421,7 +445,8 @@ namespace TestANTLR
             // inclusiveOrExpression Or exclusiveOrExpression
             else
             {
-                var leftChildType = Types.Get(context.inclusiveOrExpression());
+                var leftChild = context.inclusiveOrExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -429,7 +454,8 @@ namespace TestANTLR
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
                         $"at {context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.exclusiveOrExpression());
+                var rightChild = context.exclusiveOrExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -439,6 +465,9 @@ namespace TestANTLR
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -452,7 +481,8 @@ namespace TestANTLR
             // exclusiveOrExpression Caret andExpression
             else
             {
-                var leftChildType = Types.Get(context.exclusiveOrExpression());
+                var leftChild = context.exclusiveOrExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -460,7 +490,8 @@ namespace TestANTLR
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
                         $"at {context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.andExpression());
+                var rightChild = context.andExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -470,6 +501,9 @@ namespace TestANTLR
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -483,7 +517,8 @@ namespace TestANTLR
             // andExpression And equalityExpression
             else
             {
-                var leftChildType = Types.Get(context.andExpression());
+                var leftChild = context.andExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -491,7 +526,8 @@ namespace TestANTLR
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
                         $"at {context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.equalityExpression());
+                var rightChild = context.equalityExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -501,6 +537,9 @@ namespace TestANTLR
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -514,17 +553,22 @@ namespace TestANTLR
             // equalityExpression eqOper relationalExpression
             else
             {
-                var leftChildType = Types.Get(context.equalityExpression());
+                var leftChild = context.equalityExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.relationalExpression());
+                var rightChild = context.relationalExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -538,17 +582,22 @@ namespace TestANTLR
             // relationalExpression relOper shiftExpression
             else
             {
-                var leftChildType = Types.Get(context.relationalExpression());
+                var leftChild = context.relationalExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.shiftExpression());
+                var rightChild = context.shiftExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 Types.Put(context, SymbolType.GetType("int"));
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -562,7 +611,8 @@ namespace TestANTLR
             // shiftExpression shiftOper additiveExpression
             else
             {
-                var leftChildType = Types.Get(context.shiftExpression());
+                var leftChild = context.shiftExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -570,7 +620,8 @@ namespace TestANTLR
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' with float value on the left " +
                         $"at {context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.additiveExpression());
+                var rightChild = context.additiveExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -580,6 +631,9 @@ namespace TestANTLR
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -593,18 +647,23 @@ namespace TestANTLR
             // additiveExpression addOper multiplicativeExpression
             else
             {
-                var leftChildType = Types.Get(context.additiveExpression());
+                var leftChild = context.additiveExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.multiplicativeExpression());
+                var rightChild = context.multiplicativeExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{context.children[1].GetText()}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -620,14 +679,16 @@ namespace TestANTLR
             {
                 var operation = context.children[1].GetText();
 
-                var leftChildType = Types.Get(context.multiplicativeExpression());
+                var leftChild = context.multiplicativeExpression();
+                var leftChildType = Types.Get(leftChild);
                 if (!IsNumberType(leftChildType))
                     throw new SemanticException($"Can't use '{operation}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
                 if (IsFloat(leftChildType) && operation == "%")
                     throw new SemanticException($"Can't use '{operation}' with float at {context.Start.Line}:{context.Start.Column}!");
 
-                var rightChildType = Types.Get(context.unaryExpression());
+                var rightChild = context.unaryExpression();
+                var rightChildType = Types.Get(rightChild);
                 if (!IsNumberType(rightChildType))
                     throw new SemanticException($"Can't use '{operation}' on array or structure or void at " +
                         $"{context.Start.Line}:{context.Start.Column}!");
@@ -636,6 +697,9 @@ namespace TestANTLR
 
                 var biggerType = SymbolType.GetBigger(leftChildType, rightChildType);
                 Types.Put(context, biggerType);
+
+                MakeConversion(context, leftChild);
+                MakeConversion(context, rightChild);
             }
         }
 
@@ -915,6 +979,9 @@ namespace TestANTLR
                 }
 
                 Types.Put(context, functionType);
+
+                if (returnExp != null)
+                    MakeConversion(context, returnExp);
             }
             // Break || Continue
             else
@@ -989,6 +1056,19 @@ namespace TestANTLR
                     return null;
 
                 return FindClosestCycle(context.Parent);
+            }
+        }
+
+        private void MakeConversion(RuleContext curr, RuleContext child)
+        {
+            var currType = Types.Get(curr);
+            var childType = Types.Get(child);
+
+            if (currType.Name != childType.Name)
+            {
+                Conversion.Put(child, currType);
+                Console.WriteLine($"({currType.Name}) {((ParserRuleContext) child).GetText()} " +
+                    $"at {((ParserRuleContext)child).Start.Line}:{((ParserRuleContext)child).Start.Column}");
             }
         }
 

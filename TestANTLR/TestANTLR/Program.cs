@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using TestANTLR.Generators;
+using TestANTLR.Exceptions;
 using TestANTLR.Scopes;
+using static TestANTLR.MiniCParser;
 
 namespace TestANTLR
 {
@@ -19,17 +21,44 @@ namespace TestANTLR
             using (StreamReader file = new StreamReader("../../../test.txt"))
             {
                 AntlrInputStream inputStream = new AntlrInputStream(file.ReadToEnd());
-                MiniCLexer testLexer = new MiniCLexer(inputStream);
-                testLexer.AddErrorListener(ErrorListenerLex.Instance);
-                CommonTokenStream commonTokenStream = new CommonTokenStream(testLexer);
-                MiniCParser testParser = new MiniCParser(commonTokenStream);
-                testParser.AddErrorListener(ErrorListener.Instance);
-                var tree = testParser.compilationUnit();
+
+                MiniCLexer miniCLexer = new MiniCLexer(inputStream);
+                CommonTokenStream commonTokenStream = new CommonTokenStream(miniCLexer);
+
+                MiniCParser miniCParser = new MiniCParser(commonTokenStream);
+
+                SyntaxErrorListener syntaxErrorListener = new SyntaxErrorListener();
+                miniCParser.AddErrorListener(syntaxErrorListener);
+
+                CompilationUnitContext tree = miniCParser.compilationUnit();
+                if (miniCParser.NumberOfSyntaxErrors != 0)
+                {
+                    foreach (var error in syntaxErrorListener.ErrorMessages)
+                    {
+                        Console.WriteLine($"{filename} | Syntax error:  {error}");
+                    }
+
+                    Console.ReadKey();
+                    return;
+                }
 
                 ParseTreeWalker walker = new ParseTreeWalker();
-                SymbolTableSemanticListener def = new SymbolTableSemanticListener();
-                walker.Walk(def, tree);
+                SymbolTableSemanticListener semantic = new SymbolTableSemanticListener();
+                try
+                {
+                    walker.Walk(semantic, tree);
+                }
+                catch (SemanticException e)
+                {
+                    Console.WriteLine($"{filename} | Semantic error:  {e.Message}");
+
+                    Console.ReadKey();
+                    return;
+                }
             }
+
+            Console.WriteLine("All ok!");
+            Console.ReadKey();
         }
     }
 }
