@@ -19,21 +19,24 @@ namespace TestANTLR.Generators.Definitions
             var type = symbol.Type;
             
             // Декларируем переменную со значением 0 (глобальную или нет)
-            currentCode.AddComment($"Adding empty variable {symbol}");
+            // currentCode.AddComment($"Adding empty variable {symbol}");
             if (currentScope.IsGlobal())
                 currentCode.AddGlobalVariable(symbol);
             else
+            {
+                currentCode.AddComment($"Variable {symbol.Name} declaration");
                 currentCode.AddEmptyLocalVariable(symbol);
-            
+            }
+
             // Получаем значение, если переменная не структура (на структуры стоит запрет по семантике)
             var initializer = varDefCtx.initializer();
             if (type.IsArray)
             {
-                currentCode.AddComment($"Setting values for array {symbol} from right to left");
+                currentCode.AddComment($"Setting values for array {symbol.Name} from right to left");
                 var initList = initializer.initializerList();
                 var currentInitializer = initList.initializer();
                 var intType = SymbolType.GetType("int");
-                for (int i = symbol.ArraySize; i >= 0; i--)
+                for (int i = symbol.ArraySize-1; i >= 0; i--)
                 {
                     // Получаем значение
                     var ternaryExprGen = new TernaryExpressionGenerator();
@@ -45,19 +48,19 @@ namespace TestANTLR.Generators.Definitions
                     var offsetRegister = currentCode.GetFreeRegister();
                     currentCode.AddValueToRegisterAssign(offsetRegister, varOffset.ToString(), intType);
                     currentCode.AddRegisterToVariableWritingWithOffset(symbol, valueRegister, offsetRegister);
-                    currentCode.AddInlineComment($"Assigned {symbol}[{i}]");
+                    currentCode.AddInlineComment($"Assigned {symbol.Name}[{i}]");
                     
                     // Чистим регистры и переходим к вычислению следующего значения
                     currentCode.FreeRegister(offsetRegister);
                     currentCode.FreeRegister(valueRegister);
                     initList = initList.initializerList();
-                    currentInitializer = initList.initializer();
+                    currentInitializer = initList?.initializer();
                 }
                 
             }
             else
             {
-                currentCode.AddComment($"Setting value for variable {symbol}");
+                currentCode.AddComment($"Setting value for variable {symbol.Name}");
                 var ternaryExpressionGen = new TernaryExpressionGenerator();
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(initializer.ternaryExpression(), currentCode);
                 var resultValueRegister = currentCode.LastAssignedRegister;

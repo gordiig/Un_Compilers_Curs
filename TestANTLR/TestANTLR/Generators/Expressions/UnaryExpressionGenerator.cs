@@ -15,8 +15,23 @@ namespace TestANTLR.Generators.Expressions
             // Postfix expr only
             if (postfixExpression != null)
             {
+                // Полчучаем адрес переменной справа, либо значение константы
                 var postfixExpressionGenerator = new PostfixExpressionGenerator();
                 currentCode = postfixExpressionGenerator.GenerateCodeForContext(postfixExpression, currentCode);
+                
+                // Если регистр адреса не пуст, то нужно прочитать значение, иначе просто выходим 
+                if (currentCode.LastReferencedAddressRegister.Length != 0)
+                {
+                    var valueAddressRegister = currentCode.LastReferencedAddressRegister;
+                    var valueType = currentCode.LastReferencedAddressRegisterType;
+
+                    // Записываем значение переменной в регистр
+                    var valueRegister = currentCode.GetFreeRegister();
+                    currentCode.AddMemToRegisterReading(valueAddressRegister, valueType, valueRegister);
+
+                    // Чистим регистр адреса
+                    currentCode.FreeLastReferencedAddressRegister();
+                }
             }
             // With unary operator
             else

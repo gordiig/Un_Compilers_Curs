@@ -19,7 +19,10 @@ namespace TestANTLR.Generators.Declarations
             if (currentScope.IsGlobal())
                 currentCode.AddGlobalVariable(symbol);
             else
-                 currentCode.AddEmptyLocalVariable(symbol);
+            {
+                currentCode.AddComment($"Variable {symbol.Name} declaration");
+                currentCode.AddEmptyLocalVariable(symbol);
+            }
 
             return currentCode;
         }

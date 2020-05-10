@@ -16,7 +16,7 @@ namespace TestANTLR.Generators.Expressions
             // Identifier
             if (context is MiniCParser.VarReadContext identifier)
             {
-                currentCode.AddComment($"Getting variable \"{identifier.GetText()}\"");
+                currentCode.AddComment($"Getting variable {identifier.GetText()} address");
                 
                 // Достаем переменную из скоупа
                 var currentScope = currentCode.GetCurrentScope();
@@ -24,9 +24,9 @@ namespace TestANTLR.Generators.Expressions
                 if (symbol == null)
                     throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
 
-                // Запись в регистр
+                // Запись адреса в регистр
                 var destRegister = currentCode.GetFreeRegister();
-                currentCode.AddVariableToRegisterReading(symbol, destRegister);
+                currentCode.AddVariableAddressToRegisterReading(symbol, destRegister);
             }
             // Constant
             else if (context is MiniCParser.ConstReadContext constant)

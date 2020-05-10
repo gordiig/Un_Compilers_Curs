@@ -24,40 +24,60 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpression, currentCode);
                 var inBracesValueRegister = currentCode.LastAssignedRegister;
                 
-                // Получение переменной
+                // Получение адреса переменной
                 var postfixExpression = arrayReadContext.postfixExpression();
                 var postfixExpressionGen = new PostfixExpressionGenerator();
                 currentCode = postfixExpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
-                var variableValueRegister = currentCode.LastAssignedRegister;
-                var arrayVariable = currentCode.LastReferencedVariable;
-                
+                var variableAddressRegister = currentCode.LastReferencedAddressRegister;
+                var variableType = currentCode.LastReferencedAddressRegisterType;
+
                 // Вычисление смещения
                 currentCode.AddComment("Getting indexed value");
                 var intType = SymbolType.GetType("int");
                 var varSizeRegister = currentCode.GetFreeRegister();
-                currentCode.AddValueToRegisterAssign(varSizeRegister, arrayVariable.Type.Size.ToString(), intType);
+                currentCode.AddValueToRegisterAssign(varSizeRegister, variableType.Size.ToString(), intType);
                 var offsetRegister = currentCode.GetFreeRegister();
                 currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister, intType);
 
                 // Получение значения по индексу
-                var lhsRegister = currentCode.GetFreeRegister();
-                currentCode.AddVariableToRegisterReadingWithOffset(arrayVariable, lhsRegister, offsetRegister);
+                currentCode.AddAddingRegisterToRegister(variableAddressRegister, variableAddressRegister, 
+                    offsetRegister, intType);
                 
                 // Освобождение регистров
                 currentCode.FreeRegister(offsetRegister);
                 currentCode.FreeRegister(varSizeRegister);
-                currentCode.FreeRegister(variableValueRegister);
                 currentCode.FreeRegister(inBracesValueRegister);
             }
             // Function call (f(*))
             else if (context is MiniCParser.FunctionCallContext functionCallContext)
             {
-                // TODO TERNARY EXPR
+                // TODO FUNCTIONS
             }
             // Dotting (a.b)
-            else
+            else if (context is MiniCParser.StructReadContext structReadContext)
             {
-                // TODO STRUCTS
+                // Вычисление lvalue
+                var postfixExpression = structReadContext.postfixExpression();
+                var postfixEpressionGen = new PostfixExpressionGenerator();
+                currentCode = postfixEpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
+                var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
+                var lValueType = currentCode.LastReferencedAddressRegisterType;
+                
+                // Вычисляем offset для переменной структуры
+                var structSymbol = currentCode.GlobalScope.FindStruct(lValueType);
+                var structOffset = structSymbol.VariableOffsetFromStartAddress(structReadContext.Identifier().GetText());
+                
+                // Запись offset в регистр
+                var intType = SymbolType.GetType("int");
+                var offsetRegister = currentCode.GetFreeRegister();
+                currentCode.AddValueToRegisterAssign(offsetRegister, structOffset.ToString(), intType);
+                
+                // Получаем адрес нужной переменной в структуре
+                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister, intType);
+                currentCode.LastReferencedAddressRegisterType = structSymbol.VariableType(structReadContext.Identifier().GetText());
+                
+                // Чистка регистров
+                currentCode.FreeRegister(offsetRegister);
             }
             
             return currentCode;

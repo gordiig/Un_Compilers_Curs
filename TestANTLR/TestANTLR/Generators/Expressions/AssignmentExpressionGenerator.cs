@@ -28,7 +28,12 @@ namespace TestANTLR.Generators.Expressions
                 // Вычисляем lvalue
                 var lvalueGen = new LValueExpressionGenerator();
                 lvalueGen.GenerateCodeForContext(lValueExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
+                var lValueType = currentCode.LastReferencedAddressRegisterType;
+
+                // Чтение данных из адреса lvalue
+                var lValueRegister = currentCode.GetFreeRegister();
+                currentCode.AddMemToRegisterReading(lValueAddressRegister, lValueType, lValueRegister);
                 
                 // В зависимости от оператора присваивания производим вычисления
                 currentCode.AddComment("Assigning with some assign operator");
@@ -61,19 +66,12 @@ namespace TestANTLR.Generators.Expressions
                     throw new ApplicationException("Can't be here");
                 
                 // Записываем в переменную
-                var destVar = currentCode.LastReferencedVariable;
-                if (destVar.Type.IsArray || destVar.Type.IsStructType())
-                {
-                    currentCode.AddRegisterToVariableWritingWithOffset(destVar, lValueRegister,
-                        currentCode.LastAssignedOffsetRegister);
-                    currentCode.FreeRegister(currentCode.LastAssignedOffsetRegister);
-                }
-                else
-                    currentCode.AddRegisterToVariableWriting(destVar, lValueRegister);
-                    
+                currentCode.AddRegisterToMemWriting(lValueAddressRegister, lValueType, lValueRegister);
+
                 // Чистка регистров
                 currentCode.FreeRegister(lValueRegister);
                 currentCode.FreeRegister(rValueRegister);
+                currentCode.FreeLastReferencedAddressRegister();
             }
             
             return currentCode;

@@ -758,7 +758,7 @@ namespace TestANTLR
             if (memberSymbol != null)
                 Types.Put(context, memberSymbol.Type);
             else
-                throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                throw new SemanticException($"Undefined struct member '{memberId.GetText()}' at " +
                     $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
         }
 
@@ -917,7 +917,7 @@ namespace TestANTLR
                     Types.Put(context, memberSymbol.Type);
                 }
                 else
-                    throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                    throw new SemanticException($"Undefined struct member '{memberId.GetText()}' at " +
                         $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
             }
         }
@@ -1000,7 +1000,7 @@ namespace TestANTLR
             
             Console.WriteLine("Code after semantics and globals:");
             var a = new CompilationUnitCodeGenerator();
-            var text = new AsmCodeWriter(Scopes);
+            var text = new AsmCodeWriter(Scopes, global);
             text = a.GenerateCodeForContext(context, text);
             Console.WriteLine(text.AllCode);
         }

@@ -29,8 +29,8 @@ namespace TestANTLR.Generators
         #region Registers work
         
         public string LastAssignedRegister = "r0";
-        public VarSymbol LastReferencedVariable = new VarSymbol("None", SymbolType.GetType("int"));
-        public string LastAssignedOffsetRegister = "";
+        public string LastReferencedAddressRegister = "";
+        public SymbolType LastReferencedAddressRegisterType = SymbolType.GetType("int");
         public Stack<string> LoopStack = new Stack<string>();
         public Stack<string> IfStack = new Stack<string>();
         public bool[] AvaliableRegisters;
@@ -52,11 +52,16 @@ namespace TestANTLR.Generators
 
         public void FreeRegister(string register)
         {
-            if (register == LastAssignedOffsetRegister)
-                LastAssignedOffsetRegister = "";
             var intStr = register.Remove(0, 1);
             var idx = int.Parse(intStr);
             AvaliableRegisters[idx] = true;
+        }
+
+        public void FreeLastReferencedAddressRegister()
+        {
+            if (LastReferencedAddressRegister.Length != 0)
+                FreeRegister(LastReferencedAddressRegister);
+            LastReferencedAddressRegister = "";
         }
 
         public void FreeRegisters(string[] registers)
@@ -419,59 +424,45 @@ namespace TestANTLR.Generators
         #endregion
 
         #region Read-write variables to register
-        public void AddVariableToRegisterReading(VarSymbol variable, string register)
-        {
-            var memRegister = GetFreeRegister();
-            var memFunc = variable.Type.MemFunc;
-            if (variable.IsGlobal)
-                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
-            else
-                _code += $"\n\t{memRegister} = add(SP, #{variable.BaseAddress})";
-            _code += $"\n\t{register} = {memFunc}({memRegister});";
-            LastAssignedRegister = register;
-            LastReferencedVariable = variable;
-            FreeRegister(memRegister);
-        }
 
         public void AddRegisterToVariableWriting(VarSymbol variable, string register)
         {
             var memRegister = GetFreeRegister();
             var memFunc = variable.Type.MemFunc;
+            if (memFunc.Length == 0)
+                memFunc = SymbolType.GetType("int").MemFunc;
             if (variable.IsGlobal)
                 _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
             else
                 _code += $"\n\t{memRegister} = add(SP, #{variable.BaseAddress})";
             _code += $"\n\t{memFunc}({memRegister}) = {register};";
-            LastReferencedVariable = variable;
+            // LastReferencedVariable = variable;
             FreeRegister(memRegister);
         }
 
-        public void AddVariableToRegisterReadingWithOffset(VarSymbol variable, string register, string offset)
+        public void AddVariableAddressToRegisterReading(VarSymbol variable, string register)
         {
-            var memRegister = GetFreeRegister();
-            var memFunc = variable.Type.MemFunc;
             if (variable.IsGlobal)
-                _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
+                _code += $"\n\t{register} = ##{variable.BaseAddress};";
             else
-                _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
-            _code += $"\n\t{register} = {memFunc}({memRegister} + {offset});";
-            LastAssignedRegister = register;
-            LastReferencedVariable = variable;
-            LastAssignedOffsetRegister = offset;
-            FreeRegister(memRegister);
+                _code += $"\n\t{register} = add(SP, #{variable.BaseAddress})";
+            LastReferencedAddressRegister = register;
+            LastReferencedAddressRegisterType = variable.Type;
         }
 
         public void AddRegisterToVariableWritingWithOffset(VarSymbol variable, string register, string offset)
         {
             var memRegister = GetFreeRegister();
             var memFunc = variable.Type.MemFunc;
+            if (memFunc.Length == 0)
+                memFunc = SymbolType.GetType("int").MemFunc;
             if (variable.IsGlobal)
                 _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
             else
                 _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
             _code += $"\n\t{memFunc}({memRegister} + {offset}) = {register};";
-            LastReferencedVariable = variable;
-            LastAssignedOffsetRegister = offset;
+            // LastReferencedVariable = variable;
+            // LastAssignedOffsetRegister = offset;
             FreeRegister(memRegister);
         }
 

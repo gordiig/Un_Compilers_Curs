@@ -38,5 +38,10 @@ namespace TestANTLR.Scopes
             }
             throw new CodeGenerationException($"Can't calculate struct offset for variable {variable} in {Name}");
         }
+
+        public SymbolType VariableType(string variable)
+        {
+            return Table[variable].Type;
+        }
     }
 }

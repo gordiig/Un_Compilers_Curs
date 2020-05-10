@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions.Logical
 {
@@ -14,13 +15,44 @@ namespace TestANTLR.Generators.Expressions.Logical
             // With logical or expr
             if (logicalOrExpression != null)
             {
-                // TODO: ADD || OPERATOR
+                currentCode.AddComment("Logical or operation");
+                
+                // Вычисление rvalue
+                currentCode = logicalAndGen.GenerateCodeForContext(logicalAndExpression, currentCode);
+                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueType = SymbolType.GetType("int");    // TODO: TYPING
+                
+                // Сравнение rvalue c 0
+                var pRegister = currentCode.GetFreePredicateRegister();
+                currentCode.AddCompareRegisterEqNumber(pRegister, rValueRegister, "0", rValueType, true);
+                var rValueCompareResultRegister = currentCode.GetFreeRegister();
+                currentCode.AddRegisterToRegisterAssign(rValueCompareResultRegister, pRegister);
+
+                // Вычисление lvalue
+                var logicalOrGen = new LogicalOrGenerator();
+                currentCode = logicalOrGen.GenerateCodeForContext(logicalOrExpression, currentCode);
+                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueType = SymbolType.GetType("int");    // TODO: TYPING
+
+                // Сравнение lvalue c 0
+                currentCode.AddCompareRegisterEqNumber(pRegister, lValueRegister, "0", lValueType, true);
+                var lValueCompareResultRegister = currentCode.GetFreeRegister();
+                currentCode.AddRegisterToRegisterAssign(lValueCompareResultRegister, pRegister);
+
+                // Применение OR к результатам сравнения
+                var resultRegister = currentCode.GetFreeRegister();
+                currentCode.AddRegisterOrRegister(resultRegister, lValueRegister, rValueRegister);
+                    
+                // Чистка регистров
+                currentCode.FreePredicateRegister(pRegister);
+                currentCode.FreeRegister(lValueCompareResultRegister);
+                currentCode.FreeRegister(lValueRegister);
+                currentCode.FreeRegister(rValueCompareResultRegister);
+                currentCode.FreeRegister(rValueRegister);
             }
             // Logical and expr only
             else
-            {
                 currentCode = logicalAndGen.GenerateCodeForContext(logicalAndExpression, currentCode);
-            }
 
             return currentCode;
         }

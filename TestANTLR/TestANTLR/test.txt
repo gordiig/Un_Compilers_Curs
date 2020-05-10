@@ -1,49 +1,16 @@
 // Wow, super code
-struct s1 {
-	int a[2];
-	int b;
-};
 
-struct s {
-	int a[1];
-	const float b;
-	struct s1 s;
-	struct s1 s1[2];
-};
-
-struct s g;
-
-int globalADecl;
-const int globalConstADecl;
-
-int globalADef = 0;
-const int globalConstADef = 0;
-
-int main(const int a[])
-{
-    int b;
-	int a = 0;
-	int c;
-	int i;
-	
-	c = a + b;
-	
-	if (a)
-	    c = 3;
-	    
-	while(b) {
-	    int g = 0;
-	    g = b * b;
-	    b -= 1;
-	}
-	
-	do {
-	    b -= 1;
-	} while (b);
-	
-	for (i = 0; i == b; i += 1) {
-	
-	}
-	
-	return 0;
+int main(void) {
+    
+    int a = 2;
+    int b = 2;
+    int c = a + b;
+    
+    if (c > 5) {
+        a = 5;
+    } else {
+        b = 3;
+    }
+    
+    return 0;
 }
