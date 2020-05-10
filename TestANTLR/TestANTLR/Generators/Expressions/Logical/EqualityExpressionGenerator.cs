@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions.Logical
 {
@@ -25,9 +26,10 @@ namespace TestANTLR.Generators.Expressions.Logical
                 
                 // Сравнение
                 currentCode.AddComment("Equality comparing");
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var negate = equalityExprCtx.Equal() == null;
                 var pRegister = currentCode.GetFreePredicateRegister();
-                currentCode.AddCompareRegisterEqRegister(pRegister, lValueRegister, rValueRegister, negate);
+                currentCode.AddCompareRegisterEqRegister(pRegister, lValueRegister, rValueRegister, type, negate);
                 
                 // Чистка регистров
                 currentCode.FreeRegister(rValueRegister);

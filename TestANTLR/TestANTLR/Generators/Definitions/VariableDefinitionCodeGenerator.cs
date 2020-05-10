@@ -1,5 +1,6 @@
 using Antlr4.Runtime;
 using TestANTLR.Generators.Expressions;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators
 {
@@ -11,7 +12,7 @@ namespace TestANTLR.Generators
             
             // Получаем инфу о переменной
             var header = varDefCtx.varHeader();
-            var type = header.typeSpecifier().GetText();
+            var type = SymbolType.GetType(header.typeSpecifier().GetText());
             var identifier = header.Identifier().GetText();
             
             // Деларируем переменную со значением 0

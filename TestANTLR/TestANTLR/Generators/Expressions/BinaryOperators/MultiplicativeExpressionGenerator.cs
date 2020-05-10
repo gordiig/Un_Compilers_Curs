@@ -1,5 +1,6 @@
 using System;
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions.BinaryOperators
 {
@@ -25,7 +26,7 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 var lValueRegister = currentCode.LastAssignedRegister;
                 
                 // Вычисление
-                var type = "int";    // TODO: TYPING
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 currentCode.AddComment("Doing some multiplicative operator");
                 var resultRegister = currentCode.GetFreeRegister();
                 if (multiplicativeExprCtx.Star() != null) 

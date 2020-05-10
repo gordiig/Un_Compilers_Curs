@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators
 {
@@ -14,15 +16,17 @@ namespace TestANTLR.Generators
         public string Variables { get => _variables; }
         public string AllCode { get => "\t.section\t.data" + Variables + "\n\n\t.section\t.text" + Code + "\n"; }
 
-        public AsmCodeWriter()
+        public AsmCodeWriter(ParseTreeProperty<Scope> skopes)
         {
+            scopes = skopes;
             AvaliableRegisters = new bool[27];
             for (int i = 0; i < AvaliableRegisters.Length; i++)
                 AvaliableRegisters[i] = true;
         }
         
-        // Registers work
-        public string LastAssignedRegister = "r2";
+        #region Registers work
+        
+        public string LastAssignedRegister = "r0";
         public string LastReferencedVariable = "";
         public Stack<string> LoopStack = new Stack<string>();
         public Stack<string> IfStack = new Stack<string>();
@@ -36,7 +40,7 @@ namespace TestANTLR.Generators
             {
                 if (AvaliableRegisters[i])
                 {
-                    var ans = $"r{i + 2}";
+                    var ans = $"r{i}";
                     AvaliableRegisters[i] = false;
                     return ans;
                 }
@@ -48,7 +52,7 @@ namespace TestANTLR.Generators
         {
             var intStr = register.Remove(0, 1);
             var idx = int.Parse(intStr);
-            AvaliableRegisters[idx - 2] = true;
+            AvaliableRegisters[idx] = true;
         }
 
         public void FreeRegisters(string[] registers)
@@ -79,39 +83,32 @@ namespace TestANTLR.Generators
             var idx = int.Parse(intStr);
             AvaliablePredicateRegisters[idx] = true;
         }
-
-        // Useful privates
-        private string memFuncForType(string type)
-        {
-            switch (type)
-            {
-                case "int":
-                    return "memw";
-                case "float":
-                    return "memw";
-                case "char":
-                    return "memb";
-                default:
-                    throw new ArgumentException("Unknown type");
-            }
-        }
         
-        private string mpyFuncForType(string type)
+        #endregion
+
+        #region Scopes work
+
+        private ParseTreeProperty<Scope> scopes { get; }
+        private Stack<Scope> scopesStack = new Stack<Scope>();
+
+        public Scope PushScope(ParserRuleContext ctx)
         {
-            switch (type)
-            {
-                case "int":
-                    return "mpyi";
-                case "float":
-                    // TODO: MPY for float
-                    throw new NotImplementedException("Mpy for float");
-                case "char":
-                    return "mpyi";
-                default:
-                    throw new ArgumentException("Unknown type");
-            }
+            scopesStack.Push(scopes.Get(ctx));
+            return scopesStack.Peek();
         }
 
+        public Scope PopScope()
+        {
+            return scopesStack.Pop();
+        }
+
+        public Scope GetCurrentScope()
+        {
+            return scopesStack.Peek();
+        }
+
+        #endregion
+        
         // Writing to file
         public void WriteToFile(string filename)
         {
@@ -122,15 +119,16 @@ namespace TestANTLR.Generators
             }
         }
 
-        // Adding variables
-        public void AddVariable(string name, string type, string value = "0")
+        #region Adding variables
+        
+        public void AddVariable(string name, SymbolType type, string value = "0")
         {
-            _variables += $"\n{name}:\n\t.{type}\t{value}";
+            _variables += $"\n{name}:\n\t.{type.Name}\t{value}";
         }
 
-        public void AddEmptyArray(string name, string type, int capacity)
+        public void AddEmptyArray(string name, SymbolType type, int capacity)
         {
-            var header = $"\n{name}:\n\t.{type} ";
+            var header = $"\n{name}:\n\t.{type.Name} ";
             for (int i = 0; i < capacity; i++)
             {
                 header += "0, ";
@@ -140,16 +138,19 @@ namespace TestANTLR.Generators
             _variables += header;
         }
 
-        public void AddArray(string name, string type, string values)
+        public void AddArray(string name, SymbolType type, string values)
         {
-            _variables += $"\n{name}:\n\t.{type} {values}";
+            _variables += $"\n{name}:\n\t.{type.Name} {values}";
         }
-
-        // Adding function labels
+        
+        #endregion
+        
+        #region Adding function labels
         public void AddFunctionStart(string name)
         {
             var label = $"func_{name}_start";
             _code += $"\n{label}:";
+            AddAllocateStackFrame4000();
             FuncStack.Push(name);
         }
 
@@ -157,7 +158,7 @@ namespace TestANTLR.Generators
         {
             var label = $"func_{name}_end";
             _code += $"\n{label}:";
-            _code += $"\n\tjump LR;";
+            _code += $"\n\tdealloc_return;";
             FuncStack.Pop();
         }
 
@@ -169,10 +170,21 @@ namespace TestANTLR.Generators
 
         public void AddReturnValue(string sourceRegister)
         {
-            AddRegisterToRegisterAssign("r1", sourceRegister);
+            AddRegisterToRegisterAssign("r0", sourceRegister);
+        }
+        
+        #endregion
+
+        #region Allocating stack frame
+
+        public void AddAllocateStackFrame4000()
+        {
+            _code += "\n\tallocframe(#4000)";
         }
 
-        // Adding loop labels
+        #endregion
+        
+        #region Adding loop labels
         public void AddLoopStart(string name)
         {
             var label = $"loop_{name}_start";
@@ -210,8 +222,10 @@ namespace TestANTLR.Generators
             var label = $"loop_{loopName}_end";
             AddConditionalJump(pRegister, label, negate);
         }
+        
+        #endregion
 
-        // Adding if labels
+        #region Adding if labels
         public void AddIfStart(string name)
         {
             var label = $"if_{name}_start";
@@ -255,64 +269,78 @@ namespace TestANTLR.Generators
             var label = $"if_{ifName}_end";
             AddConditionalJump(pRegister, label, negate);
         }
+        
+        #endregion
 
-        // Read-write variables to register
-        public void AddVariableToRegisterReading(string variableName, string type, string register)
+        #region Read-write variables to register
+        public void AddVariableToRegisterReading(string variableName, SymbolType type, string register)
         {
-            var memFunc = memFuncForType(type);
-            _code += $"\n\tr0 = ##{variableName};";
-            _code += $"\n\t{register} = {memFunc}(r0);";
+            var memRegister = GetFreeRegister();
+            var memFunc = type.MemFunc;
+            _code += $"\n\t{memRegister} = ##{variableName};";
+            _code += $"\n\t{register} = {memFunc}({memRegister});";
             LastAssignedRegister = register;
             LastReferencedVariable = variableName;
+            FreeRegister(memRegister);
         }
 
-        public void AddRegisterToVariableWriting(string variableName, string type, string register)
+        public void AddRegisterToVariableWriting(string variableName, SymbolType type, string register)
         {
-            var memFunc = memFuncForType(type);
-            _code += $"\n\tr0 = ##{variableName};";
-            _code += $"\n\t{memFunc}(r0) = {register};";
+            var memRegister = GetFreeRegister();
+            var memFunc = type.MemFunc;
+            _code += $"\n\t{memRegister} = ##{variableName};";
+            _code += $"\n\t{memFunc}({memRegister}) = {register};";
             LastReferencedVariable = variableName;
+            FreeRegister(memRegister);
         }
 
-        public void AddArrayToRegisterReading(string variableName, string type, string register, string offset)
+        public void AddArrayToRegisterReading(string variableName, SymbolType type, string register, string offset)
         {
-            // Offset ВСЕГДА РЕГИСТР ИЗ-ЗА УМНОЖЕНИЯ
-            var memFunc = memFuncForType(type);
-            _code += $"\n\tr0 = ##{variableName};";
-            _code += $"\n\t{register} = {memFunc}(r0 + {offset});";
+            // Offset ВСЕГДА РЕГИСТР ИЗ-ЗА УМНОЖЕНИЯ ???
+            var memRegister = GetFreeRegister();
+            var memFunc = type.MemFunc;
+            _code += $"\n\t{memRegister} = ##{variableName};";
+            _code += $"\n\t{register} = {memFunc}({memRegister} + {offset});";
             LastAssignedRegister = register;
             LastReferencedVariable = variableName;
+            FreeRegister(memRegister);
         }
 
-        public void AddRegisterToArrayWriting(string variableName, string type, string register, string offset)
+        public void AddRegisterToArrayWriting(string variableName, SymbolType type, string register, string offset)
         {
             // ТО ЖЕ САМОЕ ДЛЯ Offset
-            var memFunc = memFuncForType(type);
-            _code += $"\n\tr0 = ##{variableName};";
-            _code += $"\n\t{memFunc}(r0 + {offset}) = {register};";
+            var memRegister = GetFreeRegister();
+            var memFunc = type.MemFunc;
+            _code += $"\n\t{memRegister} = ##{variableName};";
+            _code += $"\n\t{memFunc}({memRegister} + {offset}) = {register};";
             LastReferencedVariable = variableName;
+            FreeRegister(memRegister);
         }
 
-        public void AddMemToRegisterReading(string addressRegister, string type, string destRegister, string offsetRegister = "")
+        public void AddMemToRegisterReading(string addressRegister, SymbolType type, string destRegister, string offsetRegister = "")
         {
-            var memFunc = memFuncForType(type);
+            var memFunc = type.MemFunc;
             var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
             _code += $"\n\t{destRegister} = {memFunc}({addressRegister}{offsetSuffix});";
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterToMemWriting(string addressRegister, string type, string sourceRegister, string offsetRegister = "")
+        public void AddRegisterToMemWriting(string addressRegister, SymbolType type, string sourceRegister, string offsetRegister = "")
         {
-            var memFunc = memFuncForType(type);
+            var memFunc = type.MemFunc;
             var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
-            _code += $"\n\tr0 = {sourceRegister}";
             _code += $"\n\t{memFunc}({addressRegister}{offsetSuffix}) = {sourceRegister};";
         }
         
-        // Working with registers
-        public void AddValueToRegisterAssign(string register, string value)
+        #endregion
+        
+        #region Working with registers
+        public void AddValueToRegisterAssign(string register, string value, SymbolType type)
         {
-            _code += $"\n\t{register} = #{value};";
+            if (type.Name == "float")
+                _code += $"\n\t{register} = sfmake(#{value}):pos;";
+            else 
+                _code += $"\n\t{register} = #{value};";
             LastAssignedRegister = register;
         }
 
@@ -330,23 +358,21 @@ namespace TestANTLR.Generators
             LastAssignedRegister = destRegister;
         }
         
-        // ALU function
-        public void AddAddingRegisterToRegister(string lhs, string s1, string s2)
+        #endregion
+        
+        #region ALU function
+        public void AddAddingRegisterToRegister(string lhs, string s1, string s2, SymbolType type)
         {
-            _code += $"\n\t{lhs} = add({s1}, {s2});";
+            var addFunc = type.AddFunc;
+            _code += $"\n\t{lhs} = {addFunc}({s1}, {s2});";
             LastAssignedRegister = lhs;
         }
 
-        public void AddSubRegisterFromRegister(string lhs, string s1, string s2)
+        public void AddSubRegisterFromRegister(string lhs, string s1, string s2, SymbolType type)
         {
-            _code += $"\n\t{lhs} = sub({s1}, {s2});";
+            var subFunc = type.SubFunc;
+            _code += $"\n\t{lhs} = {subFunc}({s1}, {s2});";
             LastAssignedRegister = lhs;
-        }
-
-        public void AddRegisterModRegister(string destRegister, string r1, string r2)
-        {
-            _code += $"\n\t{destRegister} = modwrap({r1}, {r2});";
-            LastAssignedRegister = destRegister;
         }
 
         public void AddNegateRegister(string destRegister, string sourceRegister)
@@ -355,21 +381,32 @@ namespace TestANTLR.Generators
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterMpyRegister(string destRegister, string r1, string r2, string type)
+        public void AddRegisterMpyRegister(string destRegister, string r1, string r2, SymbolType type)
         {
-            var mpyFunc = mpyFuncForType(type);
+            var mpyFunc = type.MpyFunc;
             _code += $"\n\t{destRegister} = {mpyFunc}({r1}, {r2});";
             LastAssignedRegister = destRegister;
         }
-        
-        public void AddRegisterMpyValue(string destRegister, string register, string value, string type)
+
+        #endregion
+
+        #region Converting types
+
+        public void AddIntRegisterToFloatConvert(string destRegister, string sourceRegister)
         {
-            var mpyFunc = mpyFuncForType(type);
-            _code += $"\n\t{destRegister} = {mpyFunc}({register}, #{value});";
+            _code += $"\n\t{destRegister} = convert_w2sf({sourceRegister});";
             LastAssignedRegister = destRegister;
         }
+
+        public void AddFloatRegisterToIntConvert(string destRegister, string sourceRegister)
+        {
+            _code += $"\n\t{destRegister} = convert_sf2w({sourceRegister});";
+            LastAssignedRegister = destRegister;
+        }
+
+        #endregion
         
-        // Bit manipulation functions
+        #region Bit manipulation functions
         public void AddRegisterAndRegister(string destRegister, string r1, string r2)
         {
             _code += $"\n\t{destRegister} = and({r1}, {r2});";
@@ -406,20 +443,71 @@ namespace TestANTLR.Generators
             LastAssignedRegister = destRegister;
         }
         
-        // Adding compares
-        public void AddCompareRegisterEqRegister(string pRegister, string r1, string r2, bool negate = false)
+        #endregion
+        
+        #region Adding compares
+        public void AddCompareRegisterEqRegister(string pRegister, string r1, string r2, SymbolType type, bool negate = false)
         {
-            var negateSym = negate ? "!" : "";
-            _code += $"\n\t{pRegister} = {negateSym}cmp.eq({r1}, {r2});";
+            if (type.Name == "float")
+            {
+                if (negate) 
+                    throw new NotImplementedException("Negate for float!");
+                _code += $"\n\t{pRegister} = sfcmp.eq({r1}, {r2});";
+            }
+            else
+            {
+                var negateSym = negate ? "!" : "";
+                _code += $"\n\t{pRegister} = {negateSym}cmp.eq({r1}, {r2});";   
+            }
         }
 
-        public void AddCompareRegisterEqNumber(string pRegister, string register, string value, bool negate = false)
+        public void AddCompareRegisterEqNumber(string pRegister, string register, string value, SymbolType type, bool negate = false)
         {
-            var negateSym = negate ? "!" : "";
-            _code += $"\n\t{pRegister} = {negateSym}cmp.eq({register}, #{value});";
+            if (type.Name == "float")
+            {
+                if (negate)
+                    throw new NotImplementedException("Negate for float!");
+                var flRegister = GetFreeRegister();
+                AddValueToRegisterAssign(flRegister, value, type);
+                AddCompareRegisterEqRegister(pRegister, register, flRegister, type, negate);
+                FreeRegister(flRegister);
+            }
+            else
+            {
+                var negateSym = negate ? "!" : "";
+                _code += $"\n\t{pRegister} = {negateSym}cmp.eq({register}, #{value});";   
+            }
+        }
+
+        public void AddCompareRegisterGeRegister(string pRegister, string r1, string r2, SymbolType type)
+        {
+            var sfPrefix = type.Name == "float" ? "sf" : "";
+            _code += $"\n\t{pRegister} = {sfPrefix}cmp.ge({r1}, {r2});";
         }
         
-        // Adding calls, jumps and returns
+        public void AddCompareRegisterGtRegister(string pRegister, string r1, string r2, SymbolType type)
+        {
+            var sfPrefix = type.Name == "float" ? "sf" : "";
+            _code += $"\n\t{pRegister} = {sfPrefix}cmp.gt({r1}, {r2});";
+        }
+        
+        public void AddCompareRegisterLeRegister(string pRegister, string r1, string r2, SymbolType type)
+        {
+            // LE делается через GE простым свапом параметров
+            var sfPrefix = type.Name == "float" ? "sf" : "";
+            _code += $"\n\t{pRegister} = {sfPrefix}cmp.ge({r2}, {r1});";
+        }
+        
+        public void AddCompareRegisterLtRegister(string pRegister, string r1, string r2, SymbolType type)
+        {
+            // LT делается через GT простым свапом параметров
+            var sfPrefix = type.Name == "float" ? "sf" : "";
+            _code += $"\n\t{pRegister} = {sfPrefix}cmp.gt({r2}, {r1});";
+        }
+        
+        #endregion
+        
+        #region Adding calls, jumps and returns
         public void AddJump(string label)
         {
             _code += $"\n\tjump {label};";
@@ -440,8 +528,10 @@ namespace TestANTLR.Generators
         {
             _code += $"\n\tcall {label};";
         }
+        
+        #endregion
 
-        // Adding comments
+        #region Adding comments
         public void AddInlineComment(string comment)
         {
             _code += $"\t// {comment}";
@@ -452,12 +542,16 @@ namespace TestANTLR.Generators
             var tabSym = withTab ? "\t" : "";
             _code += $"\n{tabSym}// {comment}";
         }
+        
+        #endregion
 
-        // Adding plain code
+        #region Adding plain code
         public void AddPlainCode(string code)
         {
             _code += $"\n{code}";
         }
+        
+        #endregion
 
     }
 }

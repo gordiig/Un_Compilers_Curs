@@ -1,5 +1,6 @@
 using Antlr4.Runtime;
 using TestANTLR.Generators.Expressions.Logical;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -26,8 +27,10 @@ namespace TestANTLR.Generators.Expressions
                 var predicateResultRegister = currentCode.LastAssignedRegister;
                 
                 // Запись результата в предикатный регистр
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var predicateRegister = currentCode.GetFreePredicateRegister();
-                currentCode.AddCompareRegisterEqNumber(predicateRegister, predicateResultRegister, "0", true);
+                currentCode.AddCompareRegisterEqNumber(predicateRegister, predicateResultRegister, 
+                    "0", type, true);
                 currentCode.FreeRegister(predicateResultRegister);
                 
                 // Прыжок к нужной ветке тернарного выражения

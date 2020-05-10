@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -9,13 +10,13 @@ namespace TestANTLR.Generators.Expressions
             var lvalExprCtx = context as MiniCParser.LValueExpressionContext;
             var identifier = lvalExprCtx.Identifier();
             var ternaryExpr = lvalExprCtx.ternaryExpression();
-            var lvalExprs = lvalExprCtx.lValueExpression();
+            var lvalExpr = lvalExprCtx.lValueExpression();
             // Variable name (a ...)
             if (identifier != null)
             {
                 currentCode.AddComment($"Getting variable \"{identifier.GetText()}\" for lvalue");
                 var register = currentCode.GetFreeRegister();
-                var type = "int";    // TODO: ADD GETTING TYPE FROM TABLE
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 currentCode.AddVariableToRegisterReading(identifier.GetText(), type, register);
             }
             // Braces (a[] ...)
@@ -30,7 +31,7 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Вычисление lValue
                 var lvalExprGen = new LValueExpressionGenerator();
-                currentCode = lvalExprGen.GenerateCodeForContext(lvalExprs[0], currentCode);
+                currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
                 var arrayVarName = currentCode.LastReferencedVariable;
                 
@@ -41,7 +42,7 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Само действие
                 var lhsRegister = currentCode.GetFreeRegister();
-                var type = "int";    // TODO: ADD GETTING TYPE FROM TABLE
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 currentCode.AddArrayToRegisterReading(arrayVarName, type, lhsRegister,  offsetRegister);
                 
                 // Чистка регистров

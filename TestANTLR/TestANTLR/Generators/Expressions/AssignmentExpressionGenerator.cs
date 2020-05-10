@@ -1,5 +1,6 @@
 using System;
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -31,13 +32,13 @@ namespace TestANTLR.Generators.Expressions
                 
                 // В зависимости от оператора присваивания производим вычисления
                 currentCode.AddComment("Assigning with some assign operator");
-                var type = "int";    // TODO: TYPING
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 if (assignmentOperator.Assign() != null) 
                     currentCode.AddRegisterToRegisterAssign(lValueRegister, rValueRegister);
                 else if (assignmentOperator.PlusAssign() != null)
-                    currentCode.AddAddingRegisterToRegister(lValueRegister, lValueRegister, rValueRegister);
+                    currentCode.AddAddingRegisterToRegister(lValueRegister, lValueRegister, rValueRegister, type);
                 else if (assignmentOperator.MinusAssign() != null) 
-                    currentCode.AddSubRegisterFromRegister(lValueRegister, lValueRegister, rValueRegister);
+                    currentCode.AddSubRegisterFromRegister(lValueRegister, lValueRegister, rValueRegister, type);
                 else if (assignmentOperator.LeftShiftAssign() != null)
                     currentCode.AddRegisterLefShiftRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.RightShiftAssign() != null)

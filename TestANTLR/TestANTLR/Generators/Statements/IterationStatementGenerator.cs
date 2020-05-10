@@ -1,5 +1,6 @@
 using Antlr4.Runtime;
 using TestANTLR.Generators.Expressions;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Statements
 {
@@ -54,8 +55,10 @@ namespace TestANTLR.Generators.Statements
             var checkValueRegister = currentCode.LastAssignedRegister;
             
             // Перенос значения в предикатный регистр
+            var type = SymbolType.GetType("int");    // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
-            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
+            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
+                type, true);
             currentCode.FreeRegister(checkValueRegister);
             
             // Джамп в начало цикла если нужно
@@ -75,8 +78,10 @@ namespace TestANTLR.Generators.Statements
             var checkValueRegister = currentCode.LastAssignedRegister;
             
             // Перенос значения в предикатный регистр
+            var type = SymbolType.GetType("int");    // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
-            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
+            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
+                type, true);
             currentCode.FreeRegister(checkValueRegister);
 
             // Джамп в конец цикла если нужно
@@ -108,8 +113,10 @@ namespace TestANTLR.Generators.Statements
                 var checkValueRegister = currentCode.LastAssignedRegister;
                 
                 // Перенос значения в предикатный регистр
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var predicateRegister = currentCode.GetFreePredicateRegister();
-                currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
+                currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
+                    type, true);
                 currentCode.FreeRegister(checkValueRegister);
                 
                 // Джамп в конец цикла если нужно

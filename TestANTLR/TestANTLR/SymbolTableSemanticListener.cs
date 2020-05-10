@@ -944,7 +944,7 @@ namespace TestANTLR
             
             Console.WriteLine("Code after semantics and globals:");
             var a = new CompilationUnitCodeGenerator();
-            var text = new AsmCodeWriter();
+            var text = new AsmCodeWriter(Scopes);
             text = a.GenerateCodeForContext(context, text);
             Console.WriteLine(text.AllCode);
         }

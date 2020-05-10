@@ -1,6 +1,8 @@
 using System;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
+using TestANTLR.Exceptions;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -15,16 +17,38 @@ namespace TestANTLR.Generators.Expressions
             if (context is MiniCParser.VarReadContext identifier)
             {
                 currentCode.AddComment($"Getting variable \"{identifier.GetText()}\"");
+                
+                // Достаем переменную из скоупа и получаем ее тип
+                var currentScope = currentCode.GetCurrentScope();
+                var symbol = currentScope.FindSymbol(identifier.GetText());
+                if (symbol == null)
+                    throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
+                var type = symbol.Type;
+                
+                // Запись в регистр
                 var destRegister = currentCode.GetFreeRegister();
-                var type = "int";    // TODO: ADD GETTING TYPE
                 currentCode.AddVariableToRegisterReading(identifier.GetText(), type, destRegister);
             }
             // Constant
             else if (context is MiniCParser.ConstReadContext constant)
             {
                 currentCode.AddComment($"Getting constant {constant.GetText()}");
+                
+                // Выясняем тип литерала
+                var constCtx = context.children[0] as MiniCParser.ConstantContext;
+                SymbolType type = null;
+                if (constCtx.FloatingConstant() != null)
+                    type = SymbolType.GetType("float");
+                else if (constCtx.IntegerConstant() != null)
+                    type = SymbolType.GetType("int");
+                else if (constCtx.CharacterConstant() != null)
+                    type = SymbolType.GetType("char");
+                else 
+                    throw new CodeGenerationException($"Unknown literal found: {constant.GetText()}");
+                
+                // Запись в регистр
                 var destRegister = currentCode.GetFreeRegister();
-                currentCode.AddValueToRegisterAssign(destRegister, constant.GetText());
+                currentCode.AddValueToRegisterAssign(destRegister, constant.GetText(), type);
             }
             // Expression
             else if (context is MiniCParser.ParensContext parensContext)

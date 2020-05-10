@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions.BinaryOperators
 {
@@ -25,11 +26,14 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 
                 // Сама операция
                 currentCode.AddComment("Doing additive operator");
+                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var destRegister = currentCode.GetFreeRegister();
                 if (additiveExprCtx.Plus() != null)
-                    currentCode.AddAddingRegisterToRegister(destRegister, additiveResultRegister, multiplicativeResultRegister);
+                    currentCode.AddAddingRegisterToRegister(destRegister, additiveResultRegister, 
+                        multiplicativeResultRegister, type);
                 else
-                    currentCode.AddSubRegisterFromRegister(destRegister, additiveResultRegister, multiplicativeResultRegister);
+                    currentCode.AddSubRegisterFromRegister(destRegister, additiveResultRegister, 
+                        multiplicativeResultRegister, type);
                 
                 // Чистка регистров
                 currentCode.FreeRegister(multiplicativeResultRegister);

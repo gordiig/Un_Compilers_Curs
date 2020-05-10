@@ -11,6 +11,9 @@ namespace TestANTLR.Generators.Statements
             var varDefinitions = compoundStmtCtx.varDefinition();
             var statements = compoundStmtCtx.statement();
             
+            // Добавляем в стек новый текущий скоуп
+            var curScope = currentCode.PushScope(compoundStmtCtx);
+            
             // Variable declarations
             if (varDeclarations != null)
             {
@@ -34,6 +37,9 @@ namespace TestANTLR.Generators.Statements
                 foreach (var statement in statements)
                     currentCode = statementGen.GenerateCodeForContext(statement, currentCode);
             }
+            
+            // Удаление текущего скоупа из стека
+            currentCode.PopScope();
             
             return currentCode;
         }

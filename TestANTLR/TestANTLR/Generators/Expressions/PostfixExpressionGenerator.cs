@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -37,7 +38,7 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Получение значения по индексу
                 var lhsRegister = currentCode.GetFreeRegister();
-                var type = "int"; // TODO: TYPES
+                var type = SymbolType.GetType("int"); // TODO: TYPING
                 currentCode.AddArrayToRegisterReading(variableName, type, lhsRegister, offsetRegister);
                 
                 // Освобождение регистров

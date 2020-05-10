@@ -12,6 +12,9 @@ namespace TestANTLR.Generators
             var compilationContext = context as MiniCParser.CompilationUnitContext;
             var translationUnitContext = compilationContext.translationUnit();
             var externalDeclarations = translationUnitContext.externalDeclaration();
+            
+            // Добавляем глобальный скоуп в стек
+            var globalScope = currentCode.PushScope(compilationContext);
 
             foreach (var externalDeclarationContext in externalDeclarations)
             {
@@ -47,10 +50,6 @@ namespace TestANTLR.Generators
                         currentCode = varDeclGen.GenerateCodeForContext(varDeclaration, currentCode);
                         continue;
                     }
-                    // Function declaration (not used)
-                    var funcDeclaration = declaration.functionDeclaration();
-                    if (funcDeclaration != null)
-                        continue;
                     // Struct declaration
                     var structDeclaration = declaration.structDeclaration();
                     if (structDeclaration != null)
@@ -59,6 +58,10 @@ namespace TestANTLR.Generators
                     }
                 }
             }
+            
+            // Удаляем глобальный скоуп
+            currentCode.PopScope();
+            
             return currentCode;
         }
     }

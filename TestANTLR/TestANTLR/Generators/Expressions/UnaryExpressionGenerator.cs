@@ -1,4 +1,5 @@
 using Antlr4.Runtime;
+using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators.Expressions
 {
@@ -47,16 +48,18 @@ namespace TestANTLR.Generators.Expressions
                 {
                     currentCode.AddComment("Unary !");
                     // Проверка на ноль
+                    var type = SymbolType.GetType("int");    // TODO: TYPING
                     var predicateRegister = currentCode.GetFreePredicateRegister();
-                    currentCode.AddCompareRegisterEqNumber(predicateRegister, valueForOperationRegister, "0");
+                    currentCode.AddCompareRegisterEqNumber(predicateRegister, valueForOperationRegister, 
+                        "0", type);
                     
                     // Создаем "нулевой" регистр
                     var zeroRegister = currentCode.GetFreeRegister();
-                    currentCode.AddValueToRegisterAssign(zeroRegister, "0");
+                    currentCode.AddValueToRegisterAssign(zeroRegister, "0", type);    // TODO: TYPING
                     
                     // Создаем "единичный регистр"
                     var oneRegister = currentCode.GetFreeRegister();
-                    currentCode.AddValueToRegisterAssign(oneRegister, "1");
+                    currentCode.AddValueToRegisterAssign(oneRegister, "1", type);    // TODO: TYPING
                     
                     // Если проверка на 0 успешна, то ноль, иначе 1
                     currentCode.AddConditionalRegisterToRegisterAssign(predicateRegister,

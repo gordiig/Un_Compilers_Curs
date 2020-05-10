@@ -10,16 +10,58 @@ namespace TestANTLR.Scopes
         private static List<SymbolType> types = new List<SymbolType>();
         private static HashSet<string> setTypes = new HashSet<string>();
 
+        private static Dictionary<string, string> addFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "add",
+            ["int"] = "add",
+            ["float"] = "sfadd",
+        };
+        private static Dictionary<string, string> subFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "sub",
+            ["int"] = "sub",
+            ["float"] = "sfsub",
+        };
+        private static Dictionary<string, string> mpyFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "mpyi",
+            ["int"] = "mpyi",
+            ["float"] = "sfmpy",
+        };
+        private static Dictionary<string, string> memFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "memb",
+            ["int"] = "memw",
+            ["float"] = "memw",
+        };
+        private static Dictionary<string, int> byteSize = new Dictionary<string, int>
+        {
+            ["char"] = 1,
+            ["int"] = 4,
+            ["float"] = 4,
+        };
+
         public bool IsArray { get; set; }
         public bool IsConst { get; set; }
 
         public string Name { get; }
+
+        public string AddFunc { get; }
+        public string SubFunc { get; }
+        public string MpyFunc { get; }
+        public string MemFunc { get; }
+        public int Size { get; }
 
         private SymbolType(string type)
         {
             Name = type;
             IsArray = false;
             IsConst = false;
+            AddFunc = addFuncNames.GetValueOrDefault(type, "");
+            SubFunc = subFuncNames.GetValueOrDefault(type, "");
+            MpyFunc = mpyFuncNames.GetValueOrDefault(type, "");
+            MemFunc = memFuncNames.GetValueOrDefault(type, "");
+            Size = byteSize.GetValueOrDefault(type, 0);
         }
 
         private SymbolType(SymbolType type)
@@ -27,6 +69,11 @@ namespace TestANTLR.Scopes
             Name = type.Name;
             IsArray = false;
             IsConst = false;
+            AddFunc = addFuncNames.GetValueOrDefault(Name, "");
+            SubFunc = subFuncNames.GetValueOrDefault(Name, "");
+            MpyFunc = mpyFuncNames.GetValueOrDefault(Name, "");
+            MemFunc = memFuncNames.GetValueOrDefault(Name, "");
+            Size = byteSize.GetValueOrDefault(Name, 0);
         }
 
         public static SymbolType GetType(string type)
