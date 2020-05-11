@@ -1,19 +1,11 @@
 // Wow, super code
 
-void foo() {
-    int a = 3.2;
-}
-
 int main(void) {
     
-    int a = 3;
-    float b = a;
+    int a[] = {1, 2, 3, 4};
     
-    a = b + a;
+    int b = a[1];
     
-    for (; b < 0;) {
-        a += 1;
-    }
+    a[2] = 2.0;
     
-    return b;
 }

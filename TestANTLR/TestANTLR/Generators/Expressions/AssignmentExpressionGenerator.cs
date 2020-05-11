@@ -69,7 +69,7 @@ namespace TestANTLR.Generators.Expressions
                     throw new ApplicationException("Can't be here");
 
                 // Записываем в переменную
-                currentCode.AddRegisterToMemWriting(lValueAddressRegister, lValueType, lValueRegister);
+                currentCode.AddRegisterToMemWriting(lValueAddressRegister, lValueRegister);
 
                 // Чистка регистров
                 currentCode.FreeRegister(lValueRegister);

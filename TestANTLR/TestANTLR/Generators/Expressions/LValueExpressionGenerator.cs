@@ -46,6 +46,10 @@ namespace TestANTLR.Generators.Expressions
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
                 var lValueType = lValueAddressRegister.Type;
                 
+                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра)
+                currentCode.AddMemToRegisterReading(lValueAddressRegister, SymbolType.GetType("int"), 
+                    lValueAddressRegister);
+                
                 // Вычисление оффсета для массива
                 var intType = SymbolType.GetType("int");
                 var varSizeRegister = currentCode.GetFreeRegister();

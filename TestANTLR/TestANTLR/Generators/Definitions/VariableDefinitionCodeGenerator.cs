@@ -50,7 +50,7 @@ namespace TestANTLR.Generators.Definitions
                             valueTypeToConvert);
                     
                     // Кладем в регистр offset и присваиваем
-                    var varOffset = i * type.Size;
+                    var varOffset = i * type.Size + 4;
                     currentCode.AddRegisterToVariableWritingWithOffset(symbol, valueRegister, varOffset.ToString());
                     currentCode.AddInlineComment($"Assigned {symbol.Name}[{i}]");
                     

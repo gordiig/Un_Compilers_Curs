@@ -35,9 +35,7 @@ namespace TestANTLR.Generators
         }
         
         #region Registers work
-
-        public int StackHeadOffset = 0;
-        public int ParamsStartOffset = 0;
+        
         public Register LastAssignedRegister;
         public Register LastReferencedAddressRegister;
         public Stack<string> LoopStack = new Stack<string>();
@@ -94,6 +92,7 @@ namespace TestANTLR.Generators
 
         private Stack<string> funcStack = new Stack<string>();
         private Stack<int> variablesOffsetStack = new Stack<int>();
+        public int FuncParametersOffsetFromStackHead = 0;
         public GlobalScope GlobalScope { get; }
 
         public void PushFunc(string funcName)
@@ -245,6 +244,9 @@ namespace TestANTLR.Generators
                 // Если массив
                 if (symbol.Type.IsArray)
                 {
+                    // Добавляем указатель на нулевой элемент (костыли ура вот указатели не делали теперь хлебаем)
+                    _code += $"\n\tmemw(SP + #{currentOffset}) = add(SP, #{currentOffset + 4});";
+                    currentOffset += 4;
                     for (int i = 0; i < symbol.ArraySize; i++)
                     {
                         _code += $"\n\t{memFunc}(SP + #{currentOffset}) = #0;";
@@ -265,6 +267,9 @@ namespace TestANTLR.Generators
                 // Если массив
                 if (symbol.Type.IsArray)
                 {
+                    // Добавляем указатель на нулевой элемент (костыли ура вот указатели не делали теперь хлебаем)
+                    _code += $"\n\tmemw(SP + #{currentOffset}) = add(SP, #{currentOffset + 4});";
+                    currentOffset += 4;
                     for (int i = 0; i < symbol.ArraySize; i++)
                     {
                         foreach (var symKeyValue in structSymbol.Table)
@@ -316,6 +321,7 @@ namespace TestANTLR.Generators
 
         public void AddReturnValue(Register sourceRegister)
         {
+            AvaliableRegisters[0].IsFree = false;
             AddRegisterToRegisterAssign(AvaliableRegisters[0], sourceRegister);
         }
         
@@ -454,23 +460,30 @@ namespace TestANTLR.Generators
                 _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
             else
                 _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
-            _code += $"\n\t{memFunc}({memRegister} + {offset}) = {register};";
+            _code += $"\n\t{memFunc}({memRegister} + #{offset}) = {register};";
             FreeRegister(memRegister);
         }
 
-        public void AddMemToRegisterReading(Register addressRegister, SymbolType type, Register destRegister, string offsetRegister = "")
+        public void AddMemToRegisterReading(Register addressRegister, SymbolType type, Register destRegister, string offsetValue = "")
         {
             var memFunc = type.MemFunc;
-            var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
+            var offsetSuffix = offsetValue == "" ? "" : $" + #{offsetValue}";
             _code += $"\n\t{destRegister} = {memFunc}({addressRegister}{offsetSuffix});";
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterToMemWriting(Register addressRegister, SymbolType type, Register sourceRegister, string offsetRegister = "")
+        public void AddRegisterToMemWriting(Register addressRegister, Register sourceRegister, string offsetValue = "")
         {
-            var memFunc = type.MemFunc;
-            var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
+            var memFunc = sourceRegister.Type.MemFunc;
+            var offsetSuffix = offsetValue == "" ? "" : $" + #{offsetValue}";
             _code += $"\n\t{memFunc}({addressRegister}{offsetSuffix}) = {sourceRegister};";
+        }
+
+        public void AddWriteStackHeadAddressToRegister(Register sourceRegister)
+        {
+            var currentOffset = GetCurrentStackOffset();
+            _code = $"\n\t{sourceRegister} = add(SP, #{currentOffset});";
+            sourceRegister.Type = SymbolType.GetType("int");
         }
         
         #endregion

@@ -1,3 +1,4 @@
+using System.Linq;
 using Antlr4.Runtime;
 using TestANTLR.Scopes;
 
@@ -33,6 +34,10 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = postfixExpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
                 var variableAddressRegister = currentCode.LastReferencedAddressRegister;
                 var variableType = variableAddressRegister.Type;
+                
+                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра)
+                currentCode.AddMemToRegisterReading(variableAddressRegister, SymbolType.GetType("int"), 
+                    variableAddressRegister);
 
                 // Вычисление смещения
                 currentCode.AddComment("Getting indexed value");
@@ -55,7 +60,18 @@ namespace TestANTLR.Generators.Expressions
             else if (context is MiniCParser.FunctionCallContext functionCallContext)
             {
                 var identifier = functionCallContext.Identifier();
+                var funcSymbol = currentCode.GlobalScope.GetSymbol(identifier.GetText()) as FunctionSymbol;
+                
+                // Writing parameters to stack
+                currentCode.FuncParametersOffsetFromStackHead = writeParamsToStack(currentCode, functionCallContext,
+                    funcSymbol, 0);
+
+                // Calling function
                 currentCode.AddCall(identifier.GetText());
+                
+                // Returning value if something returned
+                if (funcSymbol.Type.Name != "void")
+                    currentCode.LastAssignedRegister = currentCode.AvaliableRegisters[0];
             }
             // Dotting (a.b)
             else if (context is MiniCParser.StructReadContext structReadContext)
@@ -85,6 +101,104 @@ namespace TestANTLR.Generators.Expressions
             }
             
             return currentCode;
+        }
+
+        private int writeParamsToStack(AsmCodeWriter currentCode, MiniCParser.FunctionCallContext context, 
+            FunctionSymbol funcSymbol, int currentOffsetFromStackHead)
+        {
+            var table = funcSymbol.Table;
+            var parametersList = context.parameterList();
+            if (table.Count == 0)
+                return 0;
+
+            var currentTernaryExpression = parametersList.ternaryExpression();
+            foreach (var symKeyValue in table.Reverse())
+            {
+                var symName = symKeyValue.Key;
+                var sym = symKeyValue.Value;
+                
+                // Получаем значение, которое нужно передать
+                var ternaryGen = new TernaryExpressionGenerator();
+                currentCode = ternaryGen.GenerateCodeForContext(currentTernaryExpression, currentCode);
+
+                // Записываем его в стек
+                currentOffsetFromStackHead = writeSymbolToStack(currentCode, sym, currentOffsetFromStackHead);
+
+                // Переход к следующему параметру
+                parametersList = parametersList.parameterList();
+                currentTernaryExpression = parametersList?.ternaryExpression();
+            }
+
+            return currentOffsetFromStackHead;
+        }
+
+        private int writeSymbolToStack(AsmCodeWriter currentCode, ISymbol symbol, int offsetFromStackHead,
+            int offsetFromAddressRegister = 0)
+        {
+            // Если массив, то записываем адрес
+            if (symbol.Type.IsArray)
+            {
+                // Вычисляем реальный адрес начала массива
+                var addressRegister = currentCode.LastReferencedAddressRegister;
+                var offsetFromAddress = currentCode.GetFreeRegister();
+                currentCode.AddValueToRegisterAssign(offsetFromAddress, offsetFromAddressRegister.ToString(), 
+                    SymbolType.GetType("int"));
+                currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
+                currentCode.FreeRegister(offsetFromAddress);
+                
+                // Считаем адрес в стеке для записи
+                var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
+                    
+                // Записываем в стек
+                currentCode.AddRegisterToMemWriting(Register.SP(), addressRegister, 
+                    offsetForVar.ToString());
+                
+                // Чистим регистры и увеличиваем offset от головы стека
+                currentCode.FreeLastReferencedAddressRegister();
+                offsetFromStackHead += symbol.Type.IsArray ? 4 : symbol.Type.Size;
+                return offsetFromStackHead;
+            }
+            
+            // Если не структура
+            if (!symbol.Type.IsStructType())
+            {
+                // Вычисляем реальный адрес начала массива
+                var addressRegister = currentCode.LastReferencedAddressRegister;
+                var offsetFromAddress = currentCode.GetFreeRegister();
+                currentCode.AddValueToRegisterAssign(offsetFromAddress, offsetFromAddressRegister.ToString(), 
+                    SymbolType.GetType("int"));
+                currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
+                currentCode.FreeRegister(offsetFromAddress);
+                
+                // Получаем значение для передачи, и кладем его в регистр
+                var valueRegister = getValueFromExpression(currentCode);
+                
+                // Считаем адрес в стеке для записи
+                var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
+                    
+                // Записываем в стек
+                currentCode.AddRegisterToMemWriting(Register.SP(), valueRegister, 
+                    offsetForVar.ToString());
+                
+                // Чистим регистры и увеличиваем offset от головы стека
+                currentCode.FreeRegister(valueRegister);
+                offsetFromStackHead += symbol.Type.IsArray ? 4 : symbol.Type.Size;
+                return offsetFromStackHead;
+            }
+            
+            // Если структура
+            var structSymbol = currentCode.GlobalScope.FindStruct(symbol.Type);
+            var structTable = structSymbol.Table;
+            foreach (var symKeyVal in structTable.Reverse())
+            {
+                var symName = symKeyVal.Key;
+                var sym = symKeyVal.Value;
+
+                var offsetFromBase = structSymbol.VariableOffsetFromStartAddress(symName) + offsetFromAddressRegister;
+                offsetFromStackHead += writeSymbolToStack(currentCode, sym, offsetFromStackHead, offsetFromBase);
+            }
+
+            return offsetFromStackHead;
         }
     }
 }

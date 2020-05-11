@@ -17,5 +17,11 @@ namespace TestANTLR.Generators
         {
             return Name;
         }
+
+        public static Register SP()
+        {
+            var register = new Register("SP");
+            return register;
+        }
     }
 }
