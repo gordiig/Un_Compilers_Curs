@@ -43,15 +43,18 @@ namespace TestANTLR.Generators.Definitions
                     currentCode = ternaryExprGen.GenerateCodeForContext(currentInitializer.ternaryExpression(), currentCode);
                     var valueRegister = currentCode.LastAssignedRegister;
                     
+                    // Приводим тип если нужно
+                    var valueTypeToConvert = currentCode.Conversions.Get(currentInitializer);
+                    if (valueTypeToConvert != null)
+                        currentCode.ConvertRegisterToType(valueRegister, valueRegister, 
+                            valueTypeToConvert);
+                    
                     // Кладем в регистр offset и присваиваем
                     var varOffset = i * type.Size;
-                    var offsetRegister = currentCode.GetFreeRegister();
-                    currentCode.AddValueToRegisterAssign(offsetRegister, varOffset.ToString(), intType);
-                    currentCode.AddRegisterToVariableWritingWithOffset(symbol, valueRegister, offsetRegister);
+                    currentCode.AddRegisterToVariableWritingWithOffset(symbol, valueRegister, varOffset.ToString());
                     currentCode.AddInlineComment($"Assigned {symbol.Name}[{i}]");
                     
                     // Чистим регистры и переходим к вычислению следующего значения
-                    currentCode.FreeRegister(offsetRegister);
                     currentCode.FreeRegister(valueRegister);
                     initList = initList.initializerList();
                     currentInitializer = initList?.initializer();
@@ -64,6 +67,12 @@ namespace TestANTLR.Generators.Definitions
                 var ternaryExpressionGen = new TernaryExpressionGenerator();
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(initializer.ternaryExpression(), currentCode);
                 var resultValueRegister = currentCode.LastAssignedRegister;
+                
+                // Приводим тип если нужно
+                var valueTypeToConvert = currentCode.Conversions.Get(initializer);
+                if (valueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(resultValueRegister, resultValueRegister, 
+                        valueTypeToConvert);
         
                 // Присваиваем и чистим регистр
                 currentCode.AddRegisterToVariableWriting(symbol, resultValueRegister);

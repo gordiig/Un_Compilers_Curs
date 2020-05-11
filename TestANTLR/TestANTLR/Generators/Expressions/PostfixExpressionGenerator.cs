@@ -34,7 +34,7 @@ namespace TestANTLR.Generators.Expressions
                 var postfixExpressionGen = new PostfixExpressionGenerator();
                 currentCode = postfixExpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
                 var variableAddressRegister = currentCode.LastReferencedAddressRegister;
-                var variableType = currentCode.LastReferencedAddressRegisterType;
+                var variableType = variableAddressRegister.Type;
 
                 // Вычисление смещения
                 currentCode.AddComment("Getting indexed value");
@@ -42,11 +42,11 @@ namespace TestANTLR.Generators.Expressions
                 var varSizeRegister = currentCode.GetFreeRegister();
                 currentCode.AddValueToRegisterAssign(varSizeRegister, variableType.Size.ToString(), intType);
                 var offsetRegister = currentCode.GetFreeRegister();
-                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister, intType);
+                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister);
 
                 // Получение значения по индексу
                 currentCode.AddAddingRegisterToRegister(variableAddressRegister, variableAddressRegister, 
-                    offsetRegister, intType);
+                    offsetRegister);
                 
                 // Освобождение регистров
                 currentCode.FreeRegister(offsetRegister);
@@ -66,7 +66,7 @@ namespace TestANTLR.Generators.Expressions
                 var postfixEpressionGen = new PostfixExpressionGenerator();
                 currentCode = postfixEpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
-                var lValueType = currentCode.LastReferencedAddressRegisterType;
+                var lValueType = lValueAddressRegister.Type;
                 
                 // Вычисляем offset для переменной структуры
                 var structSymbol = currentCode.GlobalScope.FindStruct(lValueType);
@@ -78,8 +78,8 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddValueToRegisterAssign(offsetRegister, structOffset.ToString(), intType);
                 
                 // Получаем адрес нужной переменной в структуре
-                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister, intType);
-                currentCode.LastReferencedAddressRegisterType = structSymbol.VariableType(structReadContext.Identifier().GetText());
+                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister);
+                currentCode.LastReferencedAddressRegister.Type = structSymbol.VariableType(structReadContext.Identifier().GetText());
                 
                 // Чистка регистров
                 currentCode.FreeRegister(offsetRegister);

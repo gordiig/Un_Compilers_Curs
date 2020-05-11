@@ -27,10 +27,9 @@ namespace TestANTLR.Generators.Expressions
                 var predicateResultRegister = currentCode.LastAssignedRegister;
                 
                 // Запись результата в предикатный регистр
-                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var predicateRegister = currentCode.GetFreePredicateRegister();
                 currentCode.AddCompareRegisterEqNumber(predicateRegister, predicateResultRegister, 
-                    "0", type, true);
+                    "0", true);
                 currentCode.FreeRegister(predicateResultRegister);
                 
                 // Прыжок к нужной ветке тернарного выражения
@@ -47,11 +46,23 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpressions[0], currentCode);
                 var trueValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типов если нужен
+                var trueTypeToConvert = currentCode.Conversions.Get(ternaryExpressions[0]);
+                if (trueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(trueValueRegister, trueValueRegister, 
+                        trueTypeToConvert);
+                
                 // False-ветка тернарного выражения
                 currentCode.AddComment("Ternary false branch");
                 currentCode.AddPlainCode($"{labelFalse}:");
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpressions[1], currentCode);
                 var falseValueRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типов если нужен
+                var falseTypeToConvert = currentCode.Conversions.Get(ternaryExpressions[1]);
+                if (falseTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(falseValueRegister, falseValueRegister, 
+                        falseTypeToConvert);
                 
                 // Присваивание результата регистру
                 currentCode.AddComment("Ternary result");

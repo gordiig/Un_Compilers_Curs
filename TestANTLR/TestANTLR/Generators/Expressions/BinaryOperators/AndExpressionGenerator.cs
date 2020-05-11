@@ -19,10 +19,22 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 currentCode = equalityGenerator.GenerateCodeForContext(equalityExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типов если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(equalityExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
+                
                 // Вычисление lvalue
                 var andExpressionGen = new AndExpressionGenerator();
                 currentCode = andExpressionGen.GenerateCodeForContext(andExpression, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типов если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(andExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
+                        lValueTypeToConvert);
                 
                 // Вычисление результата
                 currentCode.AddComment("Doing & operator");

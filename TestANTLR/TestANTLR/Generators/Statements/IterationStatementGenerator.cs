@@ -57,8 +57,7 @@ namespace TestANTLR.Generators.Statements
             // Перенос значения в предикатный регистр
             var type = SymbolType.GetType("int");    // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
-            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
-                type, true);
+            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
             currentCode.FreeRegister(checkValueRegister);
             
             // Джамп в начало цикла если нужно
@@ -80,8 +79,7 @@ namespace TestANTLR.Generators.Statements
             // Перенос значения в предикатный регистр
             var type = SymbolType.GetType("int");    // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
-            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
-                type, true);
+            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
             currentCode.FreeRegister(checkValueRegister);
 
             // Джамп в конец цикла если нужно
@@ -115,8 +113,7 @@ namespace TestANTLR.Generators.Statements
                 // Перенос значения в предикатный регистр
                 var type = SymbolType.GetType("int");    // TODO: TYPING
                 var predicateRegister = currentCode.GetFreePredicateRegister();
-                currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
-                    type, true);
+                currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
                 currentCode.FreeRegister(checkValueRegister);
                 
                 // Джамп в конец цикла если нужно

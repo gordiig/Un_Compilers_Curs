@@ -25,11 +25,17 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = ternaryGen.GenerateCodeForContext(ternaryExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типов если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(ternaryExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
+                
                 // Вычисляем lvalue
                 var lvalueGen = new LValueExpressionGenerator();
                 lvalueGen.GenerateCodeForContext(lValueExpression, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
-                var lValueType = currentCode.LastReferencedAddressRegisterType;
+                var lValueType = lValueAddressRegister.Type;
 
                 // Чтение данных из адреса lvalue
                 var lValueRegister = currentCode.GetFreeRegister();
@@ -41,9 +47,9 @@ namespace TestANTLR.Generators.Expressions
                 if (assignmentOperator.Assign() != null) 
                     currentCode.AddRegisterToRegisterAssign(lValueRegister, rValueRegister);
                 else if (assignmentOperator.PlusAssign() != null)
-                    currentCode.AddAddingRegisterToRegister(lValueRegister, lValueRegister, rValueRegister, type);
+                    currentCode.AddAddingRegisterToRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.MinusAssign() != null) 
-                    currentCode.AddSubRegisterFromRegister(lValueRegister, lValueRegister, rValueRegister, type);
+                    currentCode.AddSubRegisterFromRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.LeftShiftAssign() != null)
                     currentCode.AddRegisterLefShiftRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.RightShiftAssign() != null)
@@ -55,7 +61,7 @@ namespace TestANTLR.Generators.Expressions
                 else if (assignmentOperator.OrAssign() != null)
                     currentCode.AddRegisterOrRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.StarAssign() != null) 
-                    currentCode.AddRegisterMpyRegister(lValueRegister, lValueRegister, rValueRegister, type);
+                    currentCode.AddRegisterMpyRegister(lValueRegister, lValueRegister, rValueRegister);
                 else if (assignmentOperator.DivAssign() != null)
                     // TODO: DIV
                     throw new NotImplementedException("IMPLEMENT DIV");
@@ -64,12 +70,7 @@ namespace TestANTLR.Generators.Expressions
                     throw new NotImplementedException("IMPLEMENT MOD");
                 else 
                     throw new ApplicationException("Can't be here");
-                
-                // Привод типов
-                var typeToConvert = currentCode.Conversions.Get(ternaryExpression);
-                if (typeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, typeToConvert);
-                
+
                 // Записываем в переменную
                 currentCode.AddRegisterToMemWriting(lValueAddressRegister, lValueType, lValueRegister);
 
