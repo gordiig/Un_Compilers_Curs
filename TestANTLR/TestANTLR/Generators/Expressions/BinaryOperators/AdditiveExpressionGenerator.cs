@@ -19,10 +19,22 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 currentCode = multiplicativeGenerator.GenerateCodeForContext(multiplicativeExpression, currentCode);
                 var multiplicativeResultRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типов если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(multiplicativeExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(multiplicativeResultRegister, 
+                        multiplicativeResultRegister, lValueTypeToConvert);
+                
                 // Вычисление lvalue
                 var additiveGenerator = new AdditiveExpressionGenerator();
                 currentCode = additiveGenerator.GenerateCodeForContext(additiveExpression, currentCode);
                 var additiveResultRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типов если нужно
+                var additiveResultTypeToConvert = currentCode.Conversions.Get(additiveExpression);
+                if (additiveResultTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(additiveResultRegister, 
+                        additiveResultRegister, additiveResultTypeToConvert);
                 
                 // Сама операция
                 currentCode.AddComment("Doing additive operator");
@@ -30,10 +42,10 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 var destRegister = currentCode.GetFreeRegister();
                 if (additiveExprCtx.Plus() != null)
                     currentCode.AddAddingRegisterToRegister(destRegister, additiveResultRegister, 
-                        multiplicativeResultRegister, type);
+                        multiplicativeResultRegister);
                 else
                     currentCode.AddSubRegisterFromRegister(destRegister, additiveResultRegister, 
-                        multiplicativeResultRegister, type);
+                        multiplicativeResultRegister);
                 
                 // Чистка регистров
                 currentCode.FreeRegister(multiplicativeResultRegister);

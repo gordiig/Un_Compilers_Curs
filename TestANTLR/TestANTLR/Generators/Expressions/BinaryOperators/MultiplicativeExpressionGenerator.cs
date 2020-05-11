@@ -38,11 +38,10 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                         lValueTypeToConvert);
                 
                 // Вычисление
-                var type = SymbolType.GetType("int");    // TODO: TYPING
                 currentCode.AddComment("Doing some multiplicative operator");
                 var resultRegister = currentCode.GetFreeRegister();
                 if (multiplicativeExprCtx.Star() != null) 
-                    currentCode.AddRegisterMpyRegister(resultRegister, lValueRegister, rValueRegister, type);
+                    currentCode.AddRegisterMpyRegister(resultRegister, lValueRegister, rValueRegister);
                 else if (multiplicativeExprCtx.Div() != null)
                     // TODO: DIV
                     throw new NotImplementedException("Div");

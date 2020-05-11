@@ -20,10 +20,10 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = postfixExpressionGenerator.GenerateCodeForContext(postfixExpression, currentCode);
                 
                 // Если регистр адреса не пуст, то нужно прочитать значение, иначе просто выходим 
-                if (currentCode.LastReferencedAddressRegister.Length != 0)
+                if (currentCode.LastReferencedAddressRegister != null)
                 {
                     var valueAddressRegister = currentCode.LastReferencedAddressRegister;
-                    var valueType = currentCode.LastReferencedAddressRegisterType;
+                    var valueType = valueAddressRegister.Type;
 
                     // Записываем значение переменной в регистр
                     var valueRegister = currentCode.GetFreeRegister();
@@ -41,6 +41,12 @@ namespace TestANTLR.Generators.Expressions
                 var unaryExpressionGenerator = new UnaryExpressionGenerator();
                 currentCode = unaryExpressionGenerator.GenerateCodeForContext(unaryExpression, currentCode);
                 var valueForOperationRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типов, если нужен
+                var typeToConvert = currentCode.Conversions.Get(unaryExpression);
+                if (typeToConvert != null) 
+                    currentCode.ConvertRegisterToType(valueForOperationRegister, 
+                        valueForOperationRegister, typeToConvert);
                 
                 // Применение операции
                 var resultRegister = currentCode.GetFreeRegister();
@@ -65,8 +71,7 @@ namespace TestANTLR.Generators.Expressions
                     // Проверка на ноль
                     var type = SymbolType.GetType("int");    // TODO: TYPING
                     var predicateRegister = currentCode.GetFreePredicateRegister();
-                    currentCode.AddCompareRegisterEqNumber(predicateRegister, valueForOperationRegister, 
-                        "0", type);
+                    currentCode.AddCompareRegisterEqNumber(predicateRegister, valueForOperationRegister, "0");
                     
                     // Создаем "нулевой" регистр
                     var zeroRegister = currentCode.GetFreeRegister();

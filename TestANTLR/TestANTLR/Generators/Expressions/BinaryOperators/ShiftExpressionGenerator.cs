@@ -18,10 +18,22 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 currentCode = additiveGenerator.GenerateCodeForContext(additiveExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типов если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(additiveExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
+                
                 // Вычисление lvalue
                 var shiftExpressionGen = new ShiftExpressionGenerator();
                 currentCode = shiftExpressionGen.GenerateCodeForContext(shiftExpression, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типов если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(shiftExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
+                        lValueTypeToConvert);
                 
                 // Вычисление результата
                 currentCode.AddComment("Shifting");

@@ -1,16 +1,15 @@
 // Wow, super code
 
+void foo() {
+    int a = 3.2;
+}
+
 int main(void) {
     
-    int a = 2;
-    int b = 2;
-    int c = a + b;
+    int a = 3;
+    float b = a;
     
-    if (c > 5) {
-        a = 5;
-    } else {
-        b = 3;
-    }
+    a = b;
     
     return 0;
 }

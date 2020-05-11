@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
+using TestANTLR.Exceptions;
 using TestANTLR.Scopes;
 
 namespace TestANTLR.Generators
@@ -17,80 +19,71 @@ namespace TestANTLR.Generators
         public string Variables { get => _variables; }
         public string AllCode { get => "\t.section\t.data" + Variables + "\n\n\t.section\t.text\n" + Code + "\n"; }
 
-        public AsmCodeWriter(ParseTreeProperty<Scope> skopes, GlobalScope globalScope)
+        public ParseTreeProperty<SymbolType> Conversions;
+
+        public AsmCodeWriter(ParseTreeProperty<Scope> skopes, GlobalScope globalScope, ParseTreeProperty<SymbolType> conversions)
         {
             scopes = skopes;
             GlobalScope = globalScope;
-            AvaliableRegisters = new bool[27];
+            Conversions = conversions;
+            AvaliableRegisters = new Register[29];
             for (int i = 0; i < AvaliableRegisters.Length; i++)
-                AvaliableRegisters[i] = true;
+                AvaliableRegisters[i] = new Register($"r{i}");
+            AvaliablePredicateRegisters = new Register[4];
+            for (int i = 0; i < AvaliablePredicateRegisters.Length; i++)
+                AvaliablePredicateRegisters[i] = new Register($"p{i}");
         }
         
         #region Registers work
-        
-        public string LastAssignedRegister = "r0";
-        public string LastReferencedAddressRegister = "";
-        public SymbolType LastReferencedAddressRegisterType = SymbolType.GetType("int");
+
+        public Register LastAssignedRegister;
+        public Register LastReferencedAddressRegister;
         public Stack<string> LoopStack = new Stack<string>();
         public Stack<string> IfStack = new Stack<string>();
-        public bool[] AvaliableRegisters;
-        public bool[] AvaliablePredicateRegisters = new []{ true, true, true, true };
+        public Register[] AvaliableRegisters;
+        public Register[] AvaliablePredicateRegisters;
 
-        public string GetFreeRegister()
+        public Register GetFreeRegister()
         {
             for (int i = 0; i < AvaliableRegisters.Length; i++)
             {
-                if (AvaliableRegisters[i])
+                if (AvaliableRegisters[i].IsFree)
                 {
-                    var ans = $"r{i}";
-                    AvaliableRegisters[i] = false;
-                    return ans;
+                    AvaliableRegisters[i].IsFree = false;
+                    return AvaliableRegisters[i];
                 }
             }
             throw new ArgumentException("No free registers left");
         }
 
-        public void FreeRegister(string register)
+        public void FreeRegister(Register register)
         {
-            var intStr = register.Remove(0, 1);
-            var idx = int.Parse(intStr);
-            AvaliableRegisters[idx] = true;
+            register.IsFree = true;
         }
 
         public void FreeLastReferencedAddressRegister()
         {
-            if (LastReferencedAddressRegister.Length != 0)
-                FreeRegister(LastReferencedAddressRegister);
-            LastReferencedAddressRegister = "";
+            if (LastReferencedAddressRegister != null)
+                LastReferencedAddressRegister.IsFree = true;
+            LastReferencedAddressRegister = null;
         }
 
-        public void FreeRegisters(string[] registers)
-        {
-            foreach (var register in registers)
-            {
-                FreeRegister(register);
-            }
-        }
-
-        public string GetFreePredicateRegister()
+        public Register GetFreePredicateRegister()
         {
             for (int i = 0; i < AvaliablePredicateRegisters.Length; i++)
             {
-                if (AvaliablePredicateRegisters[i])
+                if (AvaliablePredicateRegisters[i].IsFree)
                 {
-                    var ans = $"p{i}";
-                    AvaliablePredicateRegisters[i] = false;
-                    return ans;
+                    AvaliablePredicateRegisters[i].IsFree = false;
+                    return AvaliablePredicateRegisters[i];
                 }
             }
             throw new ArgumentException("No free predicate registers left");
         }
 
-        public void FreePredicateRegister(string pRegister)
+        public void FreePredicateRegister(Register pRegister)
         {
-            var intStr = pRegister.Remove(0, 1);
-            var idx = int.Parse(intStr);
-            AvaliablePredicateRegisters[idx] = true;
+            pRegister.IsFree = true;
         }
         
         #endregion
@@ -309,7 +302,7 @@ namespace TestANTLR.Generators
         {
             var label = $"func_{name}_end";
             _code += $"\n{label}:";
-            _code += $"\n\tdealloc_return;";
+            _code += $"\n\tdealloc_return;\n";
             PopFunc();
         }
 
@@ -319,9 +312,9 @@ namespace TestANTLR.Generators
             AddJump(label);
         }
 
-        public void AddReturnValue(string sourceRegister)
+        public void AddReturnValue(Register sourceRegister)
         {
-            AddRegisterToRegisterAssign("r0", sourceRegister);
+            AddRegisterToRegisterAssign(AvaliableRegisters[0], sourceRegister);
         }
         
         #endregion
@@ -356,7 +349,7 @@ namespace TestANTLR.Generators
             AddJump(label);
         }
 
-        public void AddConditionalContinue(string loopName, string pRegister, bool negate = false)
+        public void AddConditionalContinue(string loopName, Register pRegister, bool negate = false)
         {
             var label = $"loop_{loopName}_start";
             AddConditionalJump(pRegister, label, negate);
@@ -368,7 +361,7 @@ namespace TestANTLR.Generators
             AddJump(label);
         }
 
-        public void AddConditionalBreak(string loopName, string pRegister, bool negate = false)
+        public void AddConditionalBreak(string loopName, Register pRegister, bool negate = false)
         {
             var label = $"loop_{loopName}_end";
             AddConditionalJump(pRegister, label, negate);
@@ -403,7 +396,7 @@ namespace TestANTLR.Generators
             AddJump(label);
         }
 
-        public void AddConditionalJumpToElse(string ifName, string pRegister, bool negate = false)
+        public void AddConditionalJumpToElse(string ifName, Register pRegister, bool negate = false)
         {
             var label = $"if_{ifName}_else";
             AddConditionalJump(pRegister, label, negate);
@@ -415,7 +408,7 @@ namespace TestANTLR.Generators
             AddJump(label);
         }
 
-        public void AddConditionalJumpToIfEnd(string ifName, string pRegister, bool negate = false)
+        public void AddConditionalJumpToIfEnd(string ifName, Register pRegister, bool negate = false)
         {
             var label = $"if_{ifName}_end";
             AddConditionalJump(pRegister, label, negate);
@@ -425,7 +418,7 @@ namespace TestANTLR.Generators
 
         #region Read-write variables to register
 
-        public void AddRegisterToVariableWriting(VarSymbol variable, string register)
+        public void AddRegisterToVariableWriting(VarSymbol variable, Register register)
         {
             var memRegister = GetFreeRegister();
             var memFunc = variable.Type.MemFunc;
@@ -440,17 +433,16 @@ namespace TestANTLR.Generators
             FreeRegister(memRegister);
         }
 
-        public void AddVariableAddressToRegisterReading(VarSymbol variable, string register)
+        public void AddVariableAddressToRegisterReading(VarSymbol variable, Register register)
         {
             if (variable.IsGlobal)
                 _code += $"\n\t{register} = ##{variable.BaseAddress};";
             else
                 _code += $"\n\t{register} = add(SP, #{variable.BaseAddress})";
             LastReferencedAddressRegister = register;
-            LastReferencedAddressRegisterType = variable.Type;
         }
 
-        public void AddRegisterToVariableWritingWithOffset(VarSymbol variable, string register, string offset)
+        public void AddRegisterToVariableWritingWithOffset(VarSymbol variable, Register register, string offset)
         {
             var memRegister = GetFreeRegister();
             var memFunc = variable.Type.MemFunc;
@@ -461,12 +453,10 @@ namespace TestANTLR.Generators
             else
                 _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
             _code += $"\n\t{memFunc}({memRegister} + {offset}) = {register};";
-            // LastReferencedVariable = variable;
-            // LastAssignedOffsetRegister = offset;
             FreeRegister(memRegister);
         }
 
-        public void AddMemToRegisterReading(string addressRegister, SymbolType type, string destRegister, string offsetRegister = "")
+        public void AddMemToRegisterReading(Register addressRegister, SymbolType type, Register destRegister, string offsetRegister = "")
         {
             var memFunc = type.MemFunc;
             var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
@@ -474,7 +464,7 @@ namespace TestANTLR.Generators
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterToMemWriting(string addressRegister, SymbolType type, string sourceRegister, string offsetRegister = "")
+        public void AddRegisterToMemWriting(Register addressRegister, SymbolType type, Register sourceRegister, string offsetRegister = "")
         {
             var memFunc = type.MemFunc;
             var offsetSuffix = offsetRegister == "" ? "" : $" + {offsetRegister}";
@@ -484,56 +474,75 @@ namespace TestANTLR.Generators
         #endregion
         
         #region Working with registers
-        public void AddValueToRegisterAssign(string register, string value, SymbolType type)
+        public void AddValueToRegisterAssign(Register register, string value, SymbolType type)
         {
             if (type.Name == "float")
-                _code += $"\n\t{register} = sfmake(#{value}):pos;";
+            {
+                // sfmake работает очень странно, так что будет так
+                var floatHex = BitConverter.GetBytes(float.Parse(value));
+                var floatHexAsInt = BitConverter.ToInt32(floatHex, 0);
+                var intRegister = GetFreeRegister();
+                AddValueToRegisterAssign(intRegister, floatHexAsInt.ToString(), SymbolType.GetType("int"));
+                AddInlineComment($"{value} as int hex (sfmake works poorly)");
+                AddIntRegisterToFloatConvert(register, intRegister);
+                FreeRegister(intRegister);
+            }
             else 
                 _code += $"\n\t{register} = #{value};";
+            register.Type = type;
             LastAssignedRegister = register;
         }
 
-        public void AddRegisterToRegisterAssign(string lhs, string rhs)
+        public void AddRegisterToRegisterAssign(Register lhs, Register rhs)
         {
             _code += $"\n\t{lhs} = {rhs};";
+            lhs.Type = rhs.Type;
             LastAssignedRegister = lhs;
         }
 
-        public void AddConditionalRegisterToRegisterAssign(string pRegister, string destRegister, 
-            string sourceRegisterIfTrue, string sourceRegisterIfFalse)
+        public void AddConditionalRegisterToRegisterAssign(Register pRegister, Register destRegister, 
+            Register sourceRegisterIfTrue, Register sourceRegisterIfFalse)
         {
             _code += $"\n\tif({pRegister}) {destRegister} = {sourceRegisterIfTrue}";
             _code += $"\n\tif(!{pRegister}) {destRegister} = {sourceRegisterIfFalse}";
+            destRegister.Type = sourceRegisterIfTrue.Type;    // у true и false одинаковые типы должны быть
             LastAssignedRegister = destRegister;
         }
         
         #endregion
         
         #region ALU function
-        public void AddAddingRegisterToRegister(string lhs, string s1, string s2, SymbolType type)
+        public void AddAddingRegisterToRegister(Register lhs, Register s1, Register s2)
         {
-            var addFunc = type.AddFunc;
+            var resultType = SymbolType.GetBigger(s1.Type, s2.Type);
+            var addFunc = resultType.AddFunc;
             _code += $"\n\t{lhs} = {addFunc}({s1}, {s2});";
+            lhs.Type = resultType;
             LastAssignedRegister = lhs;
         }
 
-        public void AddSubRegisterFromRegister(string lhs, string s1, string s2, SymbolType type)
+        public void AddSubRegisterFromRegister(Register lhs, Register s1, Register s2)
         {
-            var subFunc = type.SubFunc;
+            var resultType = SymbolType.GetBigger(s1.Type, s2.Type);
+            var subFunc = resultType.SubFunc;
             _code += $"\n\t{lhs} = {subFunc}({s1}, {s2});";
+            lhs.Type = resultType;
             LastAssignedRegister = lhs;
         }
 
-        public void AddNegateRegister(string destRegister, string sourceRegister)
+        public void AddNegateRegister(Register destRegister, Register sourceRegister)
         {
             _code += $"\n\t{destRegister} = neg({sourceRegister});";
+            destRegister.Type = sourceRegister.Type;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterMpyRegister(string destRegister, string r1, string r2, SymbolType type)
+        public void AddRegisterMpyRegister(Register destRegister, Register r1, Register r2)
         {
-            var mpyFunc = type.MpyFunc;
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
+            var mpyFunc = resultType.MpyFunc;
             _code += $"\n\t{destRegister} = {mpyFunc}({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
@@ -541,62 +550,86 @@ namespace TestANTLR.Generators
 
         #region Converting types
 
-        public void AddIntRegisterToFloatConvert(string destRegister, string sourceRegister)
+        public void AddIntRegisterToFloatConvert(Register destRegister, Register sourceRegister)
         {
             _code += $"\n\t{destRegister} = convert_w2sf({sourceRegister});";
+            destRegister.Type = SymbolType.GetType("float");
             LastAssignedRegister = destRegister;
         }
 
-        public void AddFloatRegisterToIntConvert(string destRegister, string sourceRegister)
+        public void AddFloatRegisterToIntConvert(Register destRegister, Register sourceRegister)
         {
             _code += $"\n\t{destRegister} = convert_sf2w({sourceRegister});";
+            destRegister.Type = SymbolType.GetType("int");
             LastAssignedRegister = destRegister;
+        }
+
+        public void ConvertRegisterToType(Register destRegister, Register sourceRegister, SymbolType type)
+        {
+            if (type.Name == "float")
+                AddIntRegisterToFloatConvert(destRegister, sourceRegister);
+            else if (type.Name == "char" || type.Name == "int")
+                AddFloatRegisterToIntConvert(destRegister, sourceRegister);
+            else 
+                throw new CodeGenerationException($"Unknown type for conversion \"{type.Name}\"");
         }
 
         #endregion
         
         #region Bit manipulation functions
-        public void AddRegisterAndRegister(string destRegister, string r1, string r2)
+        public void AddRegisterAndRegister(Register destRegister, Register r1, Register r2)
         {
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             _code += $"\n\t{destRegister} = and({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterOrRegister(string destRegister, string r1, string r2)
+        public void AddRegisterOrRegister(Register destRegister, Register r1, Register r2)
         {
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             _code += $"\n\t{destRegister} = or({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterXorRegister(string destRegister, string r1, string r2)
+        public void AddRegisterXorRegister(Register destRegister, Register r1, Register r2)
         {
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             _code += $"\n\t{destRegister} = xor({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterRightShiftRegister(string destRegister, string r1, string r2)
+        public void AddRegisterRightShiftRegister(Register destRegister, Register r1, Register r2)
         {
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             _code += $"\n\t{destRegister} = lsr({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddRegisterLefShiftRegister(string destRegister, string r1, string r2)
+        public void AddRegisterLefShiftRegister(Register destRegister, Register r1, Register r2)
         {
+            var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             _code += $"\n\t{destRegister} = lsl({r1}, {r2});";
+            destRegister.Type = resultType;
             LastAssignedRegister = destRegister;
         }
 
-        public void AddNotRegister(string destRegister, string sourceRegister)
+        public void AddNotRegister(Register destRegister, Register sourceRegister)
         {
             _code += $"\n\t{destRegister} = not({sourceRegister});";
+            destRegister.Type = sourceRegister.Type;
             LastAssignedRegister = destRegister;
         }
         
         #endregion
         
         #region Adding compares
-        public void AddCompareRegisterEqRegister(string pRegister, string r1, string r2, SymbolType type, bool negate = false)
+        public void AddCompareRegisterEqRegister(Register pRegister, Register r1, Register r2, bool negate = false)
         {
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
             if (type.Name == "float")
             {
                 if (negate) 
@@ -610,15 +643,16 @@ namespace TestANTLR.Generators
             }
         }
 
-        public void AddCompareRegisterEqNumber(string pRegister, string register, string value, SymbolType type, bool negate = false)
+        public void AddCompareRegisterEqNumber(Register pRegister, Register register, string value, bool negate = false)
         {
+            var type = register.Type;
             if (type.Name == "float")
             {
                 if (negate)
                     throw new NotImplementedException("Negate for float!");
                 var flRegister = GetFreeRegister();
                 AddValueToRegisterAssign(flRegister, value, type);
-                AddCompareRegisterEqRegister(pRegister, register, flRegister, type, negate);
+                AddCompareRegisterEqRegister(pRegister, register, flRegister, negate);
                 FreeRegister(flRegister);
             }
             else
@@ -628,28 +662,32 @@ namespace TestANTLR.Generators
             }
         }
 
-        public void AddCompareRegisterGeRegister(string pRegister, string r1, string r2, SymbolType type)
+        public void AddCompareRegisterGeRegister(Register pRegister, Register r1, Register r2)
         {
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
             var sfPrefix = type.Name == "float" ? "sf" : "";
             _code += $"\n\t{pRegister} = {sfPrefix}cmp.ge({r1}, {r2});";
         }
         
-        public void AddCompareRegisterGtRegister(string pRegister, string r1, string r2, SymbolType type)
+        public void AddCompareRegisterGtRegister(Register pRegister, Register r1, Register r2)
         {
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
             var sfPrefix = type.Name == "float" ? "sf" : "";
             _code += $"\n\t{pRegister} = {sfPrefix}cmp.gt({r1}, {r2});";
         }
         
-        public void AddCompareRegisterLeRegister(string pRegister, string r1, string r2, SymbolType type)
+        public void AddCompareRegisterLeRegister(Register pRegister, Register r1, Register r2)
         {
             // LE делается через GE простым свапом параметров
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
             var sfPrefix = type.Name == "float" ? "sf" : "";
             _code += $"\n\t{pRegister} = {sfPrefix}cmp.ge({r2}, {r1});";
         }
         
-        public void AddCompareRegisterLtRegister(string pRegister, string r1, string r2, SymbolType type)
+        public void AddCompareRegisterLtRegister(Register pRegister, Register r1, Register r2)
         {
             // LT делается через GT простым свапом параметров
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
             var sfPrefix = type.Name == "float" ? "sf" : "";
             _code += $"\n\t{pRegister} = {sfPrefix}cmp.gt({r2}, {r1});";
         }
@@ -662,13 +700,13 @@ namespace TestANTLR.Generators
             _code += $"\n\tjump {label};";
         }
 
-        public void AddConditionalJump(string pRegister, string label, bool negate = false)
+        public void AddConditionalJump(Register pRegister, string label, bool negate = false)
         {
             var negationSym = negate ? "!" : "";
             _code += $"\nif({negationSym}{pRegister}) jump {label}";
         }
 
-        public void AddJumpToRegister(string register)
+        public void AddJumpToRegister(Register register)
         {
             _code += $"\n\tjumpr {register};";
         }

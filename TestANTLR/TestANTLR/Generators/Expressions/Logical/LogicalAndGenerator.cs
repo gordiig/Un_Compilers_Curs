@@ -21,11 +21,16 @@ namespace TestANTLR.Generators.Expressions.Logical
                 // Вычисление rvalue
                 currentCode = inclusiveOrGen.GenerateCodeForContext(inclusiveOrExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
-                var rValueType = SymbolType.GetType("int");    // TODO: TYPING
+                
+                // Привод типов если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(inclusiveOrExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
                 
                 // Сравнение rvalue c 0
                 var pRegister = currentCode.GetFreePredicateRegister();
-                currentCode.AddCompareRegisterEqNumber(pRegister, rValueRegister, "0", rValueType, true);
+                currentCode.AddCompareRegisterEqNumber(pRegister, rValueRegister, "0", true);
                 var rValueCompareResultRegister = currentCode.GetFreeRegister();
                 currentCode.AddRegisterToRegisterAssign(rValueCompareResultRegister, pRegister);
 
@@ -33,10 +38,15 @@ namespace TestANTLR.Generators.Expressions.Logical
                 var logicalOrGen = new LogicalAndGenerator();
                 currentCode = logicalOrGen.GenerateCodeForContext(logicalAndExpression, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
-                var lValueType = SymbolType.GetType("int");    // TODO: TYPING
+                
+                // Привод типов если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(logicalAndExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
+                        lValueTypeToConvert);
 
                 // Сравнение lvalue c 0
-                currentCode.AddCompareRegisterEqNumber(pRegister, lValueRegister, "0", lValueType, true);
+                currentCode.AddCompareRegisterEqNumber(pRegister, lValueRegister, "0", true);
                 var lValueCompareResultRegister = currentCode.GetFreeRegister();
                 currentCode.AddRegisterToRegisterAssign(lValueCompareResultRegister, pRegister);
 

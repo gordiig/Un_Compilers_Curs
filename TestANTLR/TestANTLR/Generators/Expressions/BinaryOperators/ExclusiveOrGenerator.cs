@@ -17,12 +17,24 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 // Вычисление rvalue
                 currentCode = andGenerator.GenerateCodeForContext(andExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
-
+                
+                // Привод типов если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(andExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
+                
                 // Вычисление lvalue
                 var exclusiveOrGen = new ExclusiveOrGenerator();
                 currentCode = exclusiveOrGen.GenerateCodeForContext(exclusiveOrExpression, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
 
+                // Привод типов если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(exclusiveOrExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
+                        lValueTypeToConvert);
+                
                 // Вычисление результата
                 currentCode.AddComment("Doing ^ operator");
                 var resultRegister = currentCode.GetFreeRegister();

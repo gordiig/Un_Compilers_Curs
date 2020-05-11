@@ -25,8 +25,7 @@ namespace TestANTLR.Generators.Statements
             // Получение предикатного регистра и его заполнение
             var type = SymbolType.GetType("int");     // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
-            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", 
-                type, true);
+            currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
             currentCode.FreeRegister(checkValueRegister);
             
             // Jump при нулевом предикатном регистре, и его чистка после джампа

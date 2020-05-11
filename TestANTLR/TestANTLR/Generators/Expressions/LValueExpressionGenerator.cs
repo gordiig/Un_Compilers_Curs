@@ -46,17 +46,17 @@ namespace TestANTLR.Generators.Expressions
                 var lvalExprGen = new LValueExpressionGenerator();
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
-                var lValueType = currentCode.LastReferencedAddressRegisterType;
+                var lValueType = lValueAddressRegister.Type;
                 
                 // Вычисление оффсета для массива
                 var intType = SymbolType.GetType("int");
                 var varSizeRegister = currentCode.GetFreeRegister();
                 currentCode.AddValueToRegisterAssign(varSizeRegister, lValueType.Size.ToString(), intType);
                 var offsetRegister = currentCode.GetFreeRegister();
-                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister, intType);
+                currentCode.AddRegisterMpyRegister(offsetRegister, inBracesValueRegister, varSizeRegister);
 
                 // Вычисление адреса индексированного элемента
-                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister, intType);
+                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister);
                 
                 // Чистка регистров
                 currentCode.FreeRegister(offsetRegister);
@@ -70,7 +70,7 @@ namespace TestANTLR.Generators.Expressions
                 var lvalExprGen = new LValueExpressionGenerator();
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
-                var lValueType = currentCode.LastReferencedAddressRegisterType;
+                var lValueType = lValueAddressRegister.Type;
 
                 currentCode.AddComment($"Getting dot value (.{identifier.GetText()})");
                 
@@ -83,9 +83,9 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddValueToRegisterAssign(offsetRegister, structOffset.ToString(), intType);
                 
                 // Получаем адрес нужной переменной в структуре
-                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister, intType);
-                currentCode.LastReferencedAddressRegisterType = structSymbol.VariableType(identifier.GetText());
-                
+                currentCode.AddAddingRegisterToRegister(lValueAddressRegister, lValueAddressRegister, offsetRegister);
+                currentCode.LastReferencedAddressRegister.Type = structSymbol.VariableType(identifier.GetText());
+
                 // Чиска регистров
                 currentCode.FreeRegister(offsetRegister);
             }
