@@ -936,10 +936,14 @@ namespace TestANTLR
 
         public override void ExitIterationStatement([NotNull] IterationStatementContext context)
         {
-            var conditionType = Types.Get(context.ternaryExpression());
-            if (!IsNumberType(conditionType))
-                throw new SemanticException($"Iteration condition can't be array or structure at " +
-                    $"{context.Start.Line}:{context.Start.Column}!");
+            var condition = context.ternaryExpression();
+            if (condition != null)
+            {
+                var conditionType = Types.Get(context.ternaryExpression());
+                if (!IsNumberType(conditionType))
+                    throw new SemanticException($"Iteration condition can't be array or structure at " +
+                                                $"{context.Start.Line}:{context.Start.Column}!");
+            }
         }
 
         public override void ExitJumpStatement([NotNull] JumpStatementContext context)

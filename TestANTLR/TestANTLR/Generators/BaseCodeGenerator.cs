@@ -7,7 +7,7 @@ namespace TestANTLR.Generators
     {
         public abstract AsmCodeWriter GenerateCodeForContext(ParserRuleContext context, AsmCodeWriter currentCode);
 
-        protected Register getValueFromExpression(AsmCodeWriter currentCode)
+        protected Register getValueFromExpression(AsmCodeWriter currentCode, bool freeAddressRegister = true)
         {
             if (currentCode.LastReferencedAddressRegister == null)
                 return currentCode.LastAssignedRegister;
@@ -21,7 +21,8 @@ namespace TestANTLR.Generators
             currentCode.AddMemToRegisterReading(valueAddressRegister, valueType, valueRegister);
 
             // Чистим регистр адреса
-            currentCode.FreeLastReferencedAddressRegister();
+            if (freeAddressRegister)
+                currentCode.FreeLastReferencedAddressRegister();
 
             return valueRegister;
         }

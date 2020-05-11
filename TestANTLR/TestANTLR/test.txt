@@ -1,11 +1,22 @@
 // Wow, super code
 
+
+struct S {
+    int a;
+    int b;
+};
+
+
+int foo(struct S a, int b)  {
+    return 0;
+}
+
+
 int main(void) {
     
-    int a[] = {1, 2, 3, 4};
+    int b;
+    struct S a;
     
-    int b = a[1];
-    
-    a[2] = 2.0;
-    
+    b = foo(a, b);
+  
 }

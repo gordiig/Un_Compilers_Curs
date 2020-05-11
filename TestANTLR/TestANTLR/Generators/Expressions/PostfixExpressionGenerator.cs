@@ -71,7 +71,10 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Returning value if something returned
                 if (funcSymbol.Type.Name != "void")
+                {
+                    currentCode.AvaliableRegisters[0].IsFree = false;
                     currentCode.LastAssignedRegister = currentCode.AvaliableRegisters[0];
+                }
             }
             // Dotting (a.b)
             else if (context is MiniCParser.StructReadContext structReadContext)
@@ -148,7 +151,7 @@ namespace TestANTLR.Generators.Expressions
                 
                 // Считаем адрес в стеке для записи
                 var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
-                    
+
                 // Записываем в стек
                 currentCode.AddRegisterToMemWriting(Register.SP(), addressRegister, 
                     offsetForVar.ToString());
@@ -162,17 +165,27 @@ namespace TestANTLR.Generators.Expressions
             // Если не структура
             if (!symbol.Type.IsStructType())
             {
-                // Вычисляем реальный адрес начала массива
-                var addressRegister = currentCode.LastReferencedAddressRegister;
-                var offsetFromAddress = currentCode.GetFreeRegister();
-                currentCode.AddValueToRegisterAssign(offsetFromAddress, offsetFromAddressRegister.ToString(), 
-                    SymbolType.GetType("int"));
-                currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
-                currentCode.FreeRegister(offsetFromAddress);
-                
-                // Получаем значение для передачи, и кладем его в регистр
-                var valueRegister = getValueFromExpression(currentCode);
-                
+                Register valueRegister = null;
+                // Если константа
+                if (currentCode.LastReferencedAddressRegister == null)
+                    valueRegister = getValueFromExpression(currentCode);
+                // Если переменная
+                else
+                {
+                    // Вычисляем реальный адрес значения
+                    var addressRegister = currentCode.LastReferencedAddressRegister;
+                    var offsetFromAddress = currentCode.GetFreeRegister();
+                    currentCode.AddValueToRegisterAssign(offsetFromAddress, offsetFromAddressRegister.ToString(), 
+                        SymbolType.GetType("int"));
+                    currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
+
+                    // Получаем реальное значение
+                    valueRegister = getValueFromExpression(currentCode,false);
+                    
+                    // Чистим регистр
+                    currentCode.FreeRegister(offsetFromAddress);
+                }
+
                 // Считаем адрес в стеке для записи
                 var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
                     
@@ -195,8 +208,9 @@ namespace TestANTLR.Generators.Expressions
                 var sym = symKeyVal.Value;
 
                 var offsetFromBase = structSymbol.VariableOffsetFromStartAddress(symName) + offsetFromAddressRegister;
-                offsetFromStackHead += writeSymbolToStack(currentCode, sym, offsetFromStackHead, offsetFromBase);
+                offsetFromStackHead = writeSymbolToStack(currentCode, sym, offsetFromStackHead, offsetFromBase);
             }
+            currentCode.FreeLastReferencedAddressRegister();
 
             return offsetFromStackHead;
         }

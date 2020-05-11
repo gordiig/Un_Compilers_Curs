@@ -321,7 +321,6 @@ namespace TestANTLR.Generators
 
         public void AddReturnValue(Register sourceRegister)
         {
-            AvaliableRegisters[0].IsFree = false;
             AddRegisterToRegisterAssign(AvaliableRegisters[0], sourceRegister);
         }
         
@@ -447,6 +446,7 @@ namespace TestANTLR.Generators
                 _code += $"\n\t{register} = ##{variable.BaseAddress};";
             else
                 _code += $"\n\t{register} = add(SP, #{variable.BaseAddress})";
+            register.Type = variable.Type;
             LastReferencedAddressRegister = register;
         }
 
@@ -467,14 +467,19 @@ namespace TestANTLR.Generators
         public void AddMemToRegisterReading(Register addressRegister, SymbolType type, Register destRegister, string offsetValue = "")
         {
             var memFunc = type.MemFunc;
+            if (memFunc == "")
+                memFunc = "memw";
             var offsetSuffix = offsetValue == "" ? "" : $" + #{offsetValue}";
             _code += $"\n\t{destRegister} = {memFunc}({addressRegister}{offsetSuffix});";
+            destRegister.Type = type;
             LastAssignedRegister = destRegister;
         }
 
         public void AddRegisterToMemWriting(Register addressRegister, Register sourceRegister, string offsetValue = "")
         {
             var memFunc = sourceRegister.Type.MemFunc;
+            if (memFunc == "")
+                memFunc = "memw";
             var offsetSuffix = offsetValue == "" ? "" : $" + #{offsetValue}";
             _code += $"\n\t{memFunc}({addressRegister}{offsetSuffix}) = {sourceRegister};";
         }
@@ -531,6 +536,8 @@ namespace TestANTLR.Generators
         {
             var resultType = SymbolType.GetBigger(s1.Type, s2.Type);
             var addFunc = resultType.AddFunc;
+            if (addFunc == "")
+                addFunc = "add";
             _code += $"\n\t{lhs} = {addFunc}({s1}, {s2});";
             lhs.Type = resultType;
             LastAssignedRegister = lhs;
@@ -540,6 +547,8 @@ namespace TestANTLR.Generators
         {
             var resultType = SymbolType.GetBigger(s1.Type, s2.Type);
             var subFunc = resultType.SubFunc;
+            if (subFunc == "")
+                subFunc = "sub";
             _code += $"\n\t{lhs} = {subFunc}({s1}, {s2});";
             lhs.Type = resultType;
             LastAssignedRegister = lhs;
@@ -556,6 +565,8 @@ namespace TestANTLR.Generators
         {
             var resultType = SymbolType.GetBigger(r1.Type, r2.Type);
             var mpyFunc = resultType.MpyFunc;
+            if (mpyFunc == "")
+                mpyFunc = "mpyi";
             _code += $"\n\t{destRegister} = {mpyFunc}({r1}, {r2});";
             destRegister.Type = resultType;
             LastAssignedRegister = destRegister;

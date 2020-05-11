@@ -19,6 +19,7 @@ namespace TestANTLR.Generators.Expressions
             {
                 currentCode = ternaryGen.GenerateCodeForContext(ternaryExpression, currentCode);
             }
+            else
             // With lvalue expr
             {
                 // Вычисляем rvalue
