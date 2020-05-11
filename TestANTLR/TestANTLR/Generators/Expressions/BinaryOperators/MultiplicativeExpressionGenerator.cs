@@ -20,10 +20,22 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 currentCode = unaryExpressionGenerator.GenerateCodeForContext(unaryExpression, currentCode);
                 var rValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типа, если нужно
+                var rValueTypeToConvert = currentCode.Conversions.Get(unaryExpression);
+                if (rValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
+                        rValueTypeToConvert);
+                
                 // Вычисление lvalue
                 var multiplicativeExpressionGen = new MultiplicativeExpressionGenerator();
                 currentCode = multiplicativeExpressionGen.GenerateCodeForContext(multiplicativeExpression, currentCode);
                 var lValueRegister = currentCode.LastAssignedRegister;
+                
+                // Привод типа, если нужно
+                var lValueTypeToConvert = currentCode.Conversions.Get(multiplicativeExpression);
+                if (lValueTypeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
+                        lValueTypeToConvert);
                 
                 // Вычисление
                 var type = SymbolType.GetType("int");    // TODO: TYPING

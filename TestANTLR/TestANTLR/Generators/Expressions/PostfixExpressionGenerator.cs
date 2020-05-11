@@ -24,6 +24,11 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpression, currentCode);
                 var inBracesValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типа в скобках, если надо
+                var typeToConvert = currentCode.Conversions.Get(ternaryExpression);
+                if (typeToConvert != null) 
+                    currentCode.ConvertRegisterToType(inBracesValueRegister, inBracesValueRegister, typeToConvert);
+
                 // Получение адреса переменной
                 var postfixExpression = arrayReadContext.postfixExpression();
                 var postfixExpressionGen = new PostfixExpressionGenerator();

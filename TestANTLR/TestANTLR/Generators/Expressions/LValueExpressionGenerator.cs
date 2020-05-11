@@ -37,6 +37,11 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = terExprGen.GenerateCodeForContext(ternaryExpr, currentCode);
                 var inBracesValueRegister = currentCode.LastAssignedRegister;
                 
+                // Привод типа к int в скобках если нужно
+                var typeToConvert = currentCode.Conversions.Get(ternaryExpr);
+                if (typeToConvert != null) 
+                    currentCode.ConvertRegisterToType(inBracesValueRegister, inBracesValueRegister, typeToConvert);
+                
                 // Вычисление lValue
                 var lvalExprGen = new LValueExpressionGenerator();
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);

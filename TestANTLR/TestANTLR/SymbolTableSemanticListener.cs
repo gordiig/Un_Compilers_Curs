@@ -1000,7 +1000,7 @@ namespace TestANTLR
             
             Console.WriteLine("Code after semantics and globals:");
             var a = new CompilationUnitCodeGenerator();
-            var text = new AsmCodeWriter(Scopes, global);
+            var text = new AsmCodeWriter(Scopes, global, Conversion);
             text = a.GenerateCodeForContext(context, text);
             Console.WriteLine(text.AllCode);
         }

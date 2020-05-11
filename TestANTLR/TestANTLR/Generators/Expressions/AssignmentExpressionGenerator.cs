@@ -65,6 +65,11 @@ namespace TestANTLR.Generators.Expressions
                 else 
                     throw new ApplicationException("Can't be here");
                 
+                // Привод типов
+                var typeToConvert = currentCode.Conversions.Get(ternaryExpression);
+                if (typeToConvert != null)
+                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, typeToConvert);
+                
                 // Записываем в переменную
                 currentCode.AddRegisterToMemWriting(lValueAddressRegister, lValueType, lValueRegister);
 

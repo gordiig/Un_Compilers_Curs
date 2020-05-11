@@ -12,6 +12,13 @@ namespace TestANTLR.Generators.Expressions
             var assignmentGen = new AssignmentExpressionGenerator();
             currentCode = assignmentGen.GenerateCodeForContext(assignmentExpression, currentCode);
             
+            if (currentCode.Conversions.Get(assignmentExpression) != null)
+            {
+                var typeToConvert = currentCode.Conversions.Get(assignmentExpression);
+                var valueRegister = currentCode.LastAssignedRegister;
+                currentCode.ConvertRegisterToType(valueRegister, valueRegister, typeToConvert);
+            }
+            
             return currentCode;
         }
     }
