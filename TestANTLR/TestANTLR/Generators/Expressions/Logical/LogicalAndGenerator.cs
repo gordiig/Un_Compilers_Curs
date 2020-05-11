@@ -20,14 +20,11 @@ namespace TestANTLR.Generators.Expressions.Logical
                 
                 // Вычисление rvalue
                 currentCode = inclusiveOrGen.GenerateCodeForContext(inclusiveOrExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(inclusiveOrExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, inclusiveOrExpression);
+
                 // Сравнение rvalue c 0
                 var pRegister = currentCode.GetFreePredicateRegister();
                 currentCode.AddCompareRegisterEqNumber(pRegister, rValueRegister, "0", true);
@@ -37,13 +34,10 @@ namespace TestANTLR.Generators.Expressions.Logical
                 // Вычисление lvalue
                 var logicalOrGen = new LogicalAndGenerator();
                 currentCode = logicalOrGen.GenerateCodeForContext(logicalAndExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(logicalAndExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
-                        lValueTypeToConvert);
+                convertTypeIfNeeded(currentCode, lValueRegister, logicalAndExpression);
 
                 // Сравнение lvalue c 0
                 currentCode.AddCompareRegisterEqNumber(pRegister, lValueRegister, "0", true);

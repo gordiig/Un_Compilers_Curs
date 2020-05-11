@@ -38,10 +38,8 @@ namespace TestANTLR.Generators.Expressions
                 var inBracesValueRegister = currentCode.LastAssignedRegister;
                 
                 // Привод типа к int в скобках если нужно
-                var typeToConvert = currentCode.Conversions.Get(ternaryExpr);
-                if (typeToConvert != null) 
-                    currentCode.ConvertRegisterToType(inBracesValueRegister, inBracesValueRegister, typeToConvert);
-                
+                convertTypeIfNeeded(currentCode, inBracesValueRegister, ternaryExpr);
+
                 // Вычисление lValue
                 var lvalExprGen = new LValueExpressionGenerator();
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);

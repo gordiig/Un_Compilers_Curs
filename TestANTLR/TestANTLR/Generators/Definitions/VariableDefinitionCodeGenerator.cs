@@ -41,7 +41,7 @@ namespace TestANTLR.Generators.Definitions
                     // Получаем значение
                     var ternaryExprGen = new TernaryExpressionGenerator();
                     currentCode = ternaryExprGen.GenerateCodeForContext(currentInitializer.ternaryExpression(), currentCode);
-                    var valueRegister = currentCode.LastAssignedRegister;
+                    var valueRegister = getValueFromExpression(currentCode);
                     
                     // Приводим тип если нужно
                     var valueTypeToConvert = currentCode.Conversions.Get(currentInitializer);
@@ -66,7 +66,7 @@ namespace TestANTLR.Generators.Definitions
                 currentCode.AddComment($"Setting value for variable {symbol.Name}");
                 var ternaryExpressionGen = new TernaryExpressionGenerator();
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(initializer.ternaryExpression(), currentCode);
-                var resultValueRegister = currentCode.LastAssignedRegister;
+                var resultValueRegister = getValueFromExpression(currentCode);
                 
                 // Приводим тип если нужно
                 var valueTypeToConvert = currentCode.Conversions.Get(initializer);

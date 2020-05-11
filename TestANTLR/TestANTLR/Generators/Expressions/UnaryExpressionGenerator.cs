@@ -18,20 +18,6 @@ namespace TestANTLR.Generators.Expressions
                 // Полчучаем адрес переменной справа, либо значение константы
                 var postfixExpressionGenerator = new PostfixExpressionGenerator();
                 currentCode = postfixExpressionGenerator.GenerateCodeForContext(postfixExpression, currentCode);
-                
-                // Если регистр адреса не пуст, то нужно прочитать значение, иначе просто выходим 
-                if (currentCode.LastReferencedAddressRegister != null)
-                {
-                    var valueAddressRegister = currentCode.LastReferencedAddressRegister;
-                    var valueType = valueAddressRegister.Type;
-
-                    // Записываем значение переменной в регистр
-                    var valueRegister = currentCode.GetFreeRegister();
-                    currentCode.AddMemToRegisterReading(valueAddressRegister, valueType, valueRegister);
-
-                    // Чистим регистр адреса
-                    currentCode.FreeLastReferencedAddressRegister();
-                }
             }
             // With unary operator
             else
@@ -40,14 +26,11 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddComment("Value for unary operation:");
                 var unaryExpressionGenerator = new UnaryExpressionGenerator();
                 currentCode = unaryExpressionGenerator.GenerateCodeForContext(unaryExpression, currentCode);
-                var valueForOperationRegister = currentCode.LastAssignedRegister;
+                var valueForOperationRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов, если нужен
-                var typeToConvert = currentCode.Conversions.Get(unaryExpression);
-                if (typeToConvert != null) 
-                    currentCode.ConvertRegisterToType(valueForOperationRegister, 
-                        valueForOperationRegister, typeToConvert);
-                
+                convertTypeIfNeeded(currentCode, valueForOperationRegister, unaryExpression);
+
                 // Применение операции
                 var resultRegister = currentCode.GetFreeRegister();
                 if (unaryOperator.Plus() != null)

@@ -17,25 +17,19 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
             {
                 // Вычисление rvalue
                 currentCode = multiplicativeGenerator.GenerateCodeForContext(multiplicativeExpression, currentCode);
-                var multiplicativeResultRegister = currentCode.LastAssignedRegister;
+                var multiplicativeResultRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(multiplicativeExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(multiplicativeResultRegister, 
-                        multiplicativeResultRegister, lValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, multiplicativeResultRegister, multiplicativeExpression);
+
                 // Вычисление lvalue
                 var additiveGenerator = new AdditiveExpressionGenerator();
                 currentCode = additiveGenerator.GenerateCodeForContext(additiveExpression, currentCode);
-                var additiveResultRegister = currentCode.LastAssignedRegister;
+                var additiveResultRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var additiveResultTypeToConvert = currentCode.Conversions.Get(additiveExpression);
-                if (additiveResultTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(additiveResultRegister, 
-                        additiveResultRegister, additiveResultTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, additiveResultRegister, additiveExpression);
+
                 // Сама операция
                 currentCode.AddComment("Doing additive operator");
                 var type = SymbolType.GetType("int");    // TODO: TYPING

@@ -17,25 +17,19 @@ namespace TestANTLR.Generators.Expressions.Logical
             {
                 // Вычисление значения справа
                 currentCode = relationalGenerator.GenerateCodeForContext(relationalExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(relationalExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, relationalExpression);
+
                 // Вычисление значения слева
                 var equalityGen = new EqualityExpressionGenerator();
                 currentCode = equalityGen.GenerateCodeForContext(equalityExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(equalityExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
-                        lValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, lValueRegister, equalityExpression);
+
                 // Сравнение
                 currentCode.AddComment("Equality comparing");
                 var negate = equalityExprCtx.Equal() == null;

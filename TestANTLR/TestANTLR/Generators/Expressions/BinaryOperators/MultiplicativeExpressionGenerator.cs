@@ -18,25 +18,19 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
             {
                 // Вычисление rvalue
                 currentCode = unaryExpressionGenerator.GenerateCodeForContext(unaryExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типа, если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(unaryExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, unaryExpression);
+
                 // Вычисление lvalue
                 var multiplicativeExpressionGen = new MultiplicativeExpressionGenerator();
                 currentCode = multiplicativeExpressionGen.GenerateCodeForContext(multiplicativeExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типа, если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(multiplicativeExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
-                        lValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, lValueRegister, multiplicativeExpression);
+
                 // Вычисление
                 currentCode.AddComment("Doing some multiplicative operator");
                 var resultRegister = currentCode.GetFreeRegister();

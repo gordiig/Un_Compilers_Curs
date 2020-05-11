@@ -25,9 +25,7 @@ namespace TestANTLR.Generators.Expressions
                 var inBracesValueRegister = currentCode.LastAssignedRegister;
                 
                 // Привод типа в скобках, если надо
-                var typeToConvert = currentCode.Conversions.Get(ternaryExpression);
-                if (typeToConvert != null) 
-                    currentCode.ConvertRegisterToType(inBracesValueRegister, inBracesValueRegister, typeToConvert);
+                convertTypeIfNeeded(currentCode, inBracesValueRegister, ternaryExpression);
 
                 // Получение адреса переменной
                 var postfixExpression = arrayReadContext.postfixExpression();
@@ -56,7 +54,8 @@ namespace TestANTLR.Generators.Expressions
             // Function call (f(*))
             else if (context is MiniCParser.FunctionCallContext functionCallContext)
             {
-                // TODO FUNCTIONS
+                var identifier = functionCallContext.Identifier();
+                currentCode.AddCall(identifier.GetText());
             }
             // Dotting (a.b)
             else if (context is MiniCParser.StructReadContext structReadContext)

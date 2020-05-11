@@ -20,7 +20,10 @@ namespace TestANTLR.Generators.Statements
             // Вычисление условия ифа
             var ternaryExpressionGenerator = new TernaryExpressionGenerator();
             currentCode = ternaryExpressionGenerator.GenerateCodeForContext(ternaryExpression, currentCode);
-            var checkValueRegister = currentCode.LastAssignedRegister;
+            var checkValueRegister = getValueFromExpression(currentCode);
+            
+            // Привод типов если нужен
+            convertTypeIfNeeded(currentCode, checkValueRegister, ternaryExpression);
             
             // Получение предикатного регистра и его заполнение
             var type = SymbolType.GetType("int");     // TODO: TYPING

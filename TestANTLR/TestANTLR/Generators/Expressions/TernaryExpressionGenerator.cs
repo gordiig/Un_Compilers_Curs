@@ -24,7 +24,7 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddComment("Ternary predicate calculation");
                 // Вычисление предиката
                 currentCode = logicalOrGen.GenerateCodeForContext(logicalOrExpression, currentCode);
-                var predicateResultRegister = currentCode.LastAssignedRegister;
+                var predicateResultRegister = getValueFromExpression(currentCode);
                 
                 // Запись результата в предикатный регистр
                 var predicateRegister = currentCode.GetFreePredicateRegister();
@@ -44,7 +44,7 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddComment("Ternary true branch");
                 currentCode.AddPlainCode($"{labelTrue}:");
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpressions[0], currentCode);
-                var trueValueRegister = currentCode.LastAssignedRegister;
+                var trueValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужен
                 var trueTypeToConvert = currentCode.Conversions.Get(ternaryExpressions[0]);
@@ -56,7 +56,7 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddComment("Ternary false branch");
                 currentCode.AddPlainCode($"{labelFalse}:");
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpressions[1], currentCode);
-                var falseValueRegister = currentCode.LastAssignedRegister;
+                var falseValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужен
                 var falseTypeToConvert = currentCode.Conversions.Get(ternaryExpressions[1]);

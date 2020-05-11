@@ -19,24 +19,18 @@ namespace TestANTLR.Generators.Expressions.Logical
             {
                 // Вычисляем rvalue
                 currentCode = shiftGenerator.GenerateCodeForContext(shiftExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(shiftExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, shiftExpression);
+
                 // Вычисляем lvalue
                 var relationalGen = new RelationalExpressionGenerator();
                 currentCode = relationalGen.GenerateCodeForContext(relationalExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(relationalExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
-                        lValueTypeToConvert);
+                convertTypeIfNeeded(currentCode, lValueRegister, relationalExpression);
 
                 // Применяем оператор
                 var pRegister = currentCode.GetFreePredicateRegister();

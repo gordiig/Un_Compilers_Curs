@@ -16,25 +16,19 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
             {
                 // Вычисление rvalue
                 currentCode = exclusiveOrGenerator.GenerateCodeForContext(exclisiveOrExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(exclisiveOrExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, exclisiveOrExpression);
+
                 // Вычисление lvalue
                 var inclusiveOrGen = new InclusiveOrGenerator();
                 currentCode = inclusiveOrGen.GenerateCodeForContext(inclusiveOrExpression, currentCode);
-                var lValueRegister = currentCode.LastAssignedRegister;
+                var lValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var lValueTypeToConvert = currentCode.Conversions.Get(inclusiveOrExpression);
-                if (lValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(lValueRegister, lValueRegister, 
-                        lValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, lValueRegister, inclusiveOrExpression);
+
                 // Вычисление результата
                 currentCode.AddComment("Doing | operator");
                 var resultRegister = currentCode.GetFreeRegister();

@@ -33,10 +33,16 @@ namespace TestANTLR.Generators.Statements
                 // Если функция возвращает что-то
                 if (ternaryExpression != null)
                 {
+                    // Получаем значение
                     currentCode.AddComment("Getting return value");
                     var ternaryExprGen = new TernaryExpressionGenerator();
                     currentCode = ternaryExprGen.GenerateCodeForContext(ternaryExpression, currentCode);
-                    var lastAssignedRegister = currentCode.LastAssignedRegister;
+                    var lastAssignedRegister = getValueFromExpression(currentCode);
+                    
+                    // Привод типов если нужно
+                    convertTypeIfNeeded(currentCode, lastAssignedRegister, ternaryExpression);
+
+                    // Присваиваем r0 значение и return
                     currentCode.AddReturnValue(lastAssignedRegister);
                     currentCode.FreeRegister(lastAssignedRegister);
                 }

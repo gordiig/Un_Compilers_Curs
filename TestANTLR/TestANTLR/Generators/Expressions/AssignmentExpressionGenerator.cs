@@ -23,14 +23,11 @@ namespace TestANTLR.Generators.Expressions
             {
                 // Вычисляем rvalue
                 currentCode = ternaryGen.GenerateCodeForContext(ternaryExpression, currentCode);
-                var rValueRegister = currentCode.LastAssignedRegister;
+                var rValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типов если нужно
-                var rValueTypeToConvert = currentCode.Conversions.Get(ternaryExpression);
-                if (rValueTypeToConvert != null)
-                    currentCode.ConvertRegisterToType(rValueRegister, rValueRegister, 
-                        rValueTypeToConvert);
-                
+                convertTypeIfNeeded(currentCode, rValueRegister, ternaryExpression);
+
                 // Вычисляем lvalue
                 var lvalueGen = new LValueExpressionGenerator();
                 lvalueGen.GenerateCodeForContext(lValueExpression, currentCode);

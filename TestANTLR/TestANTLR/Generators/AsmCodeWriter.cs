@@ -36,6 +36,8 @@ namespace TestANTLR.Generators
         
         #region Registers work
 
+        public int StackHeadOffset = 0;
+        public int ParamsStartOffset = 0;
         public Register LastAssignedRegister;
         public Register LastReferencedAddressRegister;
         public Stack<string> LoopStack = new Stack<string>();
@@ -711,9 +713,9 @@ namespace TestANTLR.Generators
             _code += $"\n\tjumpr {register};";
         }
 
-        public void AddCall(string label)
+        public void AddCall(string funcName)
         {
-            _code += $"\n\tcall {label};";
+            _code += $"\n\tcall func_{funcName}_start;";
         }
         
         #endregion

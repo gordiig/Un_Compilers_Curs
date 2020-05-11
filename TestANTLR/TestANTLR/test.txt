@@ -9,7 +9,11 @@ int main(void) {
     int a = 3;
     float b = a;
     
-    a = b;
+    a = b + a;
     
-    return 0;
+    for (; b < 0;) {
+        a += 1;
+    }
+    
+    return b;
 }

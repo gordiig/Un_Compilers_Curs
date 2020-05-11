@@ -11,13 +11,14 @@ namespace TestANTLR.Generators.Statements
             var iterationStmtCtx = context as MiniCParser.IterationStatementContext;
             var isDoWhile = iterationStmtCtx.Do() != null;
             var isFor = iterationStmtCtx.For() != null;
-            
+
             // Если цикл for, то инициалиация должна быть вне тела цикла
-            if (isFor && iterationStmtCtx.expression()[0] != null)
+            if (isFor && iterationStmtCtx.children[2] is MiniCParser.ExpressionContext)
             {
                 var expressionGen = new ExpressionGenerator();
                 currentCode.AddComment("For loop init statement:");
                 currentCode = expressionGen.GenerateCodeForContext(iterationStmtCtx.expression()[0], currentCode);
+                convertTypeIfNeeded(currentCode, currentCode.LastAssignedRegister, iterationStmtCtx.expression()[0]);
                 // Чистим сразу, поскольку это значение нам не нужно
                 currentCode.FreeRegister(currentCode.LastAssignedRegister);
             }
@@ -52,7 +53,10 @@ namespace TestANTLR.Generators.Statements
             currentCode.AddComment("Do-while loop check for exit:");
             var ternaryExpressionGen = new TernaryExpressionGenerator();
             currentCode = ternaryExpressionGen.GenerateCodeForContext(context.ternaryExpression(), currentCode);
-            var checkValueRegister = currentCode.LastAssignedRegister;
+            var checkValueRegister = getValueFromExpression(currentCode);
+            
+            // Привод типов если нужен
+            convertTypeIfNeeded(currentCode, checkValueRegister, context.ternaryExpression());
             
             // Перенос значения в предикатный регистр
             var type = SymbolType.GetType("int");    // TODO: TYPING
@@ -74,7 +78,10 @@ namespace TestANTLR.Generators.Statements
             currentCode.AddComment("While loop check for exit:");
             var ternaryExpressionGen = new TernaryExpressionGenerator();
             currentCode = ternaryExpressionGen.GenerateCodeForContext(context.ternaryExpression(), currentCode);
-            var checkValueRegister = currentCode.LastAssignedRegister;
+            var checkValueRegister = getValueFromExpression(currentCode);
+            
+            // Привод типов если нужен
+            convertTypeIfNeeded(currentCode, checkValueRegister, context.ternaryExpression());
             
             // Перенос значения в предикатный регистр
             var type = SymbolType.GetType("int");    // TODO: TYPING
@@ -102,13 +109,16 @@ namespace TestANTLR.Generators.Statements
             AsmCodeWriter currentCode, string loopName)
         {
             // Условие выхода из цикла
-            if (context.expression()[0] != null)
+            if (context.ternaryExpression() != null)
             {
                 // Проверка на прыжок в конец цикла
                 currentCode.AddComment("For loop check for exit");
                 var ternaryExpressionGen = new TernaryExpressionGenerator();
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(context.ternaryExpression(), currentCode);
-                var checkValueRegister = currentCode.LastAssignedRegister;
+                var checkValueRegister = getValueFromExpression(currentCode);
+                
+                // Привод типов если нужен
+                convertTypeIfNeeded(currentCode, checkValueRegister, context.ternaryExpression());
                 
                 // Перенос значения в предикатный регистр
                 var type = SymbolType.GetType("int");    // TODO: TYPING
@@ -128,11 +138,18 @@ namespace TestANTLR.Generators.Statements
             // TODO: ВОЗМОЖНО ТУТ СТОИТ ЧИСТИТЬ ПОСЛЕДНИЙ LHS РЕГИСТР
             
             // Инкремент счетчика
-            if (context.expression()[1] != null)
+            var exprsCnt = context.expression().Length;
+            var ifIncIsOnlyExpr = exprsCnt == 1 && !(context.children[2] is MiniCParser.ExpressionContext);
+            if (exprsCnt == 2 || ifIncIsOnlyExpr)
             {
+                var idx = exprsCnt == 2 ? 1 : 0;
                 currentCode.AddComment("For loop increments:");
                 var expressionGen = new ExpressionGenerator();
-                currentCode = expressionGen.GenerateCodeForContext(context.expression()[1], currentCode);
+                currentCode = expressionGen.GenerateCodeForContext(context.expression()[idx], currentCode);
+                
+                // Привод типов если нужен
+                convertTypeIfNeeded(currentCode, currentCode.LastAssignedRegister, context.expression()[idx]);
+
                 // Чистим сразу -- нам эти значения не нужны
                 currentCode.FreeRegister(currentCode.LastAssignedRegister);
             }
