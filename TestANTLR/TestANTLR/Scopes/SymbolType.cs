@@ -9,17 +9,69 @@ namespace TestANTLR.Scopes
     {
         private static List<SymbolType> types = new List<SymbolType>();
         private static HashSet<string> setTypes = new HashSet<string>();
+        public static GlobalScope GlobalScope;
+
+        private static Dictionary<string, string> addFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "add",
+            ["int"] = "add",
+            ["float"] = "sfadd",
+        };
+        private static Dictionary<string, string> subFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "sub",
+            ["int"] = "sub",
+            ["float"] = "sfsub",
+        };
+        private static Dictionary<string, string> mpyFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "mpyi",
+            ["int"] = "mpyi",
+            ["float"] = "sfmpy",
+        };
+        private static Dictionary<string, string> memFuncNames = new Dictionary<string, string>
+        {
+            ["char"] = "memb",
+            ["int"] = "memw",
+            ["float"] = "memw",
+        };
+        private static Dictionary<string, int> byteSize = new Dictionary<string, int>
+        {
+            ["char"] = 1,
+            ["int"] = 4,
+            ["float"] = 4,
+        };
 
         public bool IsArray { get; set; }
         public bool IsConst { get; set; }
 
         public string Name { get; }
 
+        public string AddFunc { get; }
+        public string SubFunc { get; }
+        public string MpyFunc { get; }
+        public string MemFunc { get; }
+
+        public int Size
+        {
+            get
+            {
+                if (!IsStructType())
+                    return byteSize[Name];
+                var structSymbol = GlobalScope.FindStruct(this);
+                return structSymbol.Size;
+            }
+        }
+
         private SymbolType(string type)
         {
             Name = type;
             IsArray = false;
             IsConst = false;
+            AddFunc = addFuncNames.GetValueOrDefault(type, "");
+            SubFunc = subFuncNames.GetValueOrDefault(type, "");
+            MpyFunc = mpyFuncNames.GetValueOrDefault(type, "");
+            MemFunc = memFuncNames.GetValueOrDefault(type, "");
         }
 
         private SymbolType(SymbolType type)
@@ -27,8 +79,16 @@ namespace TestANTLR.Scopes
             Name = type.Name;
             IsArray = false;
             IsConst = false;
+            AddFunc = addFuncNames.GetValueOrDefault(Name, "");
+            SubFunc = subFuncNames.GetValueOrDefault(Name, "");
+            MpyFunc = mpyFuncNames.GetValueOrDefault(Name, "");
+            MemFunc = memFuncNames.GetValueOrDefault(Name, "");
         }
 
+        public bool IsStructType()
+        {
+            return Name.Contains("struct");
+        }
         public static SymbolType GetType(string type)
         {
             SymbolType foundType = types.Find(t => t.Name == type);

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TestANTLR.Exceptions;
+using TestANTLR.Generators;
 using TestANTLR.Scopes;
 using static TestANTLR.MiniCParser;
 
@@ -27,6 +28,7 @@ namespace TestANTLR
             global = new GlobalScope();
             Scopes.Put(context, global);
             currScope = global;
+            SymbolType.GlobalScope = global;
         }
 
         public override void EnterStructDeclaration([NotNull] StructDeclarationContext context)
@@ -756,7 +758,7 @@ namespace TestANTLR
             if (memberSymbol != null)
                 Types.Put(context, memberSymbol.Type);
             else
-                throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                throw new SemanticException($"Undefined struct member '{memberId.GetText()}' at " +
                     $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
         }
 
@@ -915,7 +917,7 @@ namespace TestANTLR
                     Types.Put(context, memberSymbol.Type);
                 }
                 else
-                    throw new SemanticException($"Undefined struct member '{memberSymbol.Name}' at " +
+                    throw new SemanticException($"Undefined struct member '{memberId.GetText()}' at " +
                         $"{memberId.Symbol.Line}:{memberId.Symbol.Column}!");
             }
         }
@@ -934,10 +936,14 @@ namespace TestANTLR
 
         public override void ExitIterationStatement([NotNull] IterationStatementContext context)
         {
-            var conditionType = Types.Get(context.ternaryExpression());
-            if (!IsNumberType(conditionType))
-                throw new SemanticException($"Iteration condition can't be array or structure at " +
-                    $"{context.Start.Line}:{context.Start.Column}!");
+            var condition = context.ternaryExpression();
+            if (condition != null)
+            {
+                var conditionType = Types.Get(context.ternaryExpression());
+                if (!IsNumberType(conditionType))
+                    throw new SemanticException($"Iteration condition can't be array or structure at " +
+                                                $"{context.Start.Line}:{context.Start.Column}!");
+            }
         }
 
         public override void ExitJumpStatement([NotNull] JumpStatementContext context)
@@ -994,7 +1000,21 @@ namespace TestANTLR
 
         public override void ExitCompilationUnit([NotNull] CompilationUnitContext context)
         {
-            //Console.WriteLine("Global done");
+            Console.WriteLine("Global done");
+            
+            Console.WriteLine("Code after semantics and globals:");
+            try
+            {
+                var a = new CompilationUnitCodeGenerator();
+                var text = new AsmCodeWriter(Scopes, global, Conversion);
+                text = a.GenerateCodeForContext(context, text);
+                Console.WriteLine(text.AllCode);
+                text.WriteToFile();
+            }
+            catch (CodeGenerationException e)
+            {
+                Console.WriteLine(e);
+            }
         }
 
         #region Private Methods

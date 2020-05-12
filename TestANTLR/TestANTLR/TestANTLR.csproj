@@ -38,4 +38,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="MiniC.g4" />
+  </ItemGroup>
+
 </Project>

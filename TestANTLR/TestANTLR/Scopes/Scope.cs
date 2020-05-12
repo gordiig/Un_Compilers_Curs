@@ -22,6 +22,11 @@ namespace TestANTLR.Scopes
             scopeInt++;
         }
 
+        public bool IsGlobal()
+        {
+            return Parent == null;
+        }
+
         public void AddSymbol(ISymbol sym)
         {
             Table.TryAdd(sym.Name, sym);

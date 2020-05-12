@@ -1,39 +1,11 @@
 // Wow, super code
-struct s1 {
-	int a[1];
-	int b;
-};
 
-struct s {
-	int a[1];
-	const float b;
-	struct s1 s;
-	struct s1 s1[2];
-};
+int main(void) {
 
-char c = 0.1;
-
-float foo(int c, const struct s s)
-{
-	int a = s.b;
-	return (a);
-}
-
-void main(int a)
-{
-	// Какие тесты проходят
-	// 1
-	// struct s a;
-	// int b = a.s.b;
-	// 2
-	// int b = a.s.a[0];
-	// 3
-	// int b = a.s1[1].a[0];
-	struct s a[1];
-	int b[] = {1, 1.1, 1.0f};
-	float c1 = (1+b[1]);
-	
-	a[0].s.b =  foo(c1, a[0]) + 1;
-	main(foo(c1, a[0]));
-	return ;
+    char a = -66;
+    char b = a;
+    
+    a += 1;
+    b = a;
+  
 }

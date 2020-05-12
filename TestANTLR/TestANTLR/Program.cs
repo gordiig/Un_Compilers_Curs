@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TestANTLR.Generators;
 using TestANTLR.Exceptions;
 using TestANTLR.Scopes;
 using static TestANTLR.MiniCParser;
@@ -16,8 +17,8 @@ namespace TestANTLR
         {
             // Order matters
             SymbolType.AddTypeRange("void", "char", "int", "float");
-
-            string filename = "test.txt";
+            
+            string filename = "../../../test.txt";
 
             using (StreamReader file = new StreamReader(filename))
             {
