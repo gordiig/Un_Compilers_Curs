@@ -713,6 +713,8 @@ namespace TestANTLR.Generators
 
         public void AddIntRegisterToFloatConvert(Register destRegister, Register sourceRegister)
         {
+            if (sourceRegister.Type.Name == "float")
+                return;
             _code += $"\n\t{destRegister} = convert_w2sf({sourceRegister});";
             destRegister.Type = SymbolType.GetType("float");
             LastAssignedRegister = destRegister;
@@ -720,6 +722,8 @@ namespace TestANTLR.Generators
 
         public void AddFloatRegisterToIntConvert(Register destRegister, Register sourceRegister)
         {
+            if (sourceRegister.Type.Name == "int" || sourceRegister.Type.Name == "char")
+                return;
             _code += $"\n\t{destRegister} = convert_sf2w({sourceRegister});";
             destRegister.Type = SymbolType.GetType("int");
             LastAssignedRegister = destRegister;

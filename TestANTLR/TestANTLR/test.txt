@@ -1,10 +1,11 @@
 // Wow, super code
 
 int main(void) {
+
+    char a = -66;
+    char b = a;
     
-    int a = 10;
-    int b = 3;
-    
-    int c = a % b;
+    a += 1;
+    b = a;
   
 }
