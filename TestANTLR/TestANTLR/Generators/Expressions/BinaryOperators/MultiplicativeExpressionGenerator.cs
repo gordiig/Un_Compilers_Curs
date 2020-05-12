@@ -37,11 +37,9 @@ namespace TestANTLR.Generators.Expressions.BinaryOperators
                 if (multiplicativeExprCtx.Star() != null) 
                     currentCode.AddRegisterMpyRegister(resultRegister, lValueRegister, rValueRegister);
                 else if (multiplicativeExprCtx.Div() != null)
-                    // TODO: DIV
-                    throw new NotImplementedException("Div");
+                    currentCode.AddRegisterDivRegister(resultRegister, lValueRegister, rValueRegister);
                 else if (multiplicativeExprCtx.Mod() != null) 
-                    // TODO: MOD
-                    throw new NotImplementedException("Mod");
+                    currentCode.AddRegisterModRegister(resultRegister, lValueRegister, rValueRegister);
                 else 
                     throw new ApplicationException("Can't be here");
                 

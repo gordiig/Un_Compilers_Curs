@@ -43,9 +43,9 @@ namespace TestANTLR.Generators
         public Register[] AvaliableRegisters;
         public Register[] AvaliablePredicateRegisters;
 
-        public Register GetFreeRegister()
+        public Register GetFreeRegister(int startIdx = 0)
         {
-            for (int i = 0; i < AvaliableRegisters.Length; i++)
+            for (int i = startIdx; i < AvaliableRegisters.Length; i++)
             {
                 if (AvaliableRegisters[i].IsFree)
                 {
@@ -647,6 +647,66 @@ namespace TestANTLR.Generators
             LastAssignedRegister = destRegister;
         }
 
+        public void AddRegisterDivRegister(Register destRegister, Register r1, Register r2)
+        {
+            var type = SymbolType.GetBigger(r1.Type, r2.Type);
+            if (type.Name == "float")
+                divWithRegisterSaving(destRegister, r1, r2, 7, "__hexagon_divsf3");
+            else 
+                divWithRegisterSaving(destRegister, r1, r2, 5, "__hexagon_divsi3");
+        }
+
+        public void AddRegisterModRegister(Register destRegister, Register r1, Register r2)
+        {
+            divWithRegisterSaving(destRegister, r1, r2, 2, "__hexagon_umodsi3");
+        } 
+
+        private void divWithRegisterSaving(Register destRegister, Register r1, Register r2, int maxSavedRegisterIdx, 
+            string divFunc)
+        {
+            // Регистры с 0 по maxSavedRegisterIdx участвуют в макросе деления, так что сохраняем их
+            AddComment($"Saving r0-r{maxSavedRegisterIdx} before sfdiv");
+            var savedRegisters = new List<Register>();
+            for (int i = 0; i < maxSavedRegisterIdx+1; i++)
+            {
+                var r = AvaliableRegisters[i];
+                var sr = GetFreeRegister(maxSavedRegisterIdx+1);
+                AddRegisterToRegisterAssign(sr, r);
+                savedRegisters.Add(sr);
+            }
+
+            // Кладем в регистры r0 и r1 значения для деления
+            AddComment($"Calling {divFunc}");
+            var reg0 = AvaliableRegisters[0];
+            var reg1 = AvaliableRegisters[1];
+            AddRegisterToRegisterAssign(reg0, r1);
+            AddRegisterToRegisterAssign(reg1, r2);
+            
+            // Вызываем макрос
+            _code += $"\n\tcall {divFunc};";
+            
+            // Результат деления сейчас в r0, поэтому восстанавливаем все регистры кроме нулевого
+            AddComment($"Restoring r1-r{maxSavedRegisterIdx} registers");
+            for (int i = 1; i < maxSavedRegisterIdx+1; i++)
+            {
+                var r = AvaliableRegisters[i];
+                AddRegisterToRegisterAssign(r, savedRegisters[i]);
+                FreeRegister(savedRegisters[i]);
+            }
+            
+            // Копируем значение из r0 в первый свободный регистр и восстанавливаем r0
+            if (destRegister.Name == "r0")
+                AddComment($"Dest register set to r0, no need to restore its prev value, {divFunc} is over");
+            else
+            {
+                AddComment("Copying result and restoring r0");
+                AddRegisterToRegisterAssign(destRegister, reg0);
+                AddRegisterToRegisterAssign(reg0, savedRegisters[0]);
+            }
+            FreeRegister(savedRegisters[0]);
+            LastAssignedRegister = destRegister;
+        }
+        
         #endregion
 
         #region Converting types
