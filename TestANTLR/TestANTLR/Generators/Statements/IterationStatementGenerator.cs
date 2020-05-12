@@ -6,6 +6,8 @@ namespace TestANTLR.Generators.Statements
 {
     public class IterationStatementGenerator: BaseCodeGenerator
     {
+        private static int loopCnt = 0;
+        
         public override AsmCodeWriter GenerateCodeForContext(ParserRuleContext context, AsmCodeWriter currentCode)
         {
             var iterationStmtCtx = context as MiniCParser.IterationStatementContext;
@@ -24,7 +26,8 @@ namespace TestANTLR.Generators.Statements
             }
             
             // Начало цикла
-            var loopName = "loop_name_TODO";
+            var loopName = $"{loopCnt}";
+            loopCnt += 1;
             currentCode.AddLoopStart(loopName);
 
             // Выбор алгоритма генерации в зависимости от типа цикла
@@ -84,7 +87,6 @@ namespace TestANTLR.Generators.Statements
             convertTypeIfNeeded(currentCode, checkValueRegister, context.ternaryExpression());
             
             // Перенос значения в предикатный регистр
-            var type = SymbolType.GetType("int");    // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
             currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
             currentCode.FreeRegister(checkValueRegister);
@@ -121,7 +123,6 @@ namespace TestANTLR.Generators.Statements
                 convertTypeIfNeeded(currentCode, checkValueRegister, context.ternaryExpression());
                 
                 // Перенос значения в предикатный регистр
-                var type = SymbolType.GetType("int");    // TODO: TYPING
                 var predicateRegister = currentCode.GetFreePredicateRegister();
                 currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
                 currentCode.FreeRegister(checkValueRegister);

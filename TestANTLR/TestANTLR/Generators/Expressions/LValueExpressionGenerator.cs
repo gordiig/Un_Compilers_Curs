@@ -35,7 +35,7 @@ namespace TestANTLR.Generators.Expressions
                 // Вычисления в скобках
                 var terExprGen = new TernaryExpressionGenerator();
                 currentCode = terExprGen.GenerateCodeForContext(ternaryExpr, currentCode);
-                var inBracesValueRegister = currentCode.LastAssignedRegister;
+                var inBracesValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типа к int в скобках если нужно
                 convertTypeIfNeeded(currentCode, inBracesValueRegister, ternaryExpr);

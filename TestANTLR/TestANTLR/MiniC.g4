@@ -362,8 +362,8 @@ FloatingConstant
 
 fragment
 DecimalFloatingConstant
-    :   FractionalConstant ExponentPart? FloatingSuffix?
-    |   DigitSequence ExponentPart FloatingSuffix?
+    :   FractionalConstant ExponentPart?
+    |   DigitSequence ExponentPart
     ;
 
 fragment
@@ -386,11 +386,6 @@ Sign
 fragment
 DigitSequence
     :   Digit+
-    ;
-
-fragment
-FloatingSuffix
-    :   'f' | 'l' | 'F' | 'L'
     ;
 
 CharacterConstant

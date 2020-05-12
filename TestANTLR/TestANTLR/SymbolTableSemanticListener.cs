@@ -1003,10 +1003,18 @@ namespace TestANTLR
             Console.WriteLine("Global done");
             
             Console.WriteLine("Code after semantics and globals:");
-            var a = new CompilationUnitCodeGenerator();
-            var text = new AsmCodeWriter(Scopes, global, Conversion);
-            text = a.GenerateCodeForContext(context, text);
-            Console.WriteLine(text.AllCode);
+            try
+            {
+                var a = new CompilationUnitCodeGenerator();
+                var text = new AsmCodeWriter(Scopes, global, Conversion);
+                text = a.GenerateCodeForContext(context, text);
+                Console.WriteLine(text.AllCode);
+                text.WriteToFile();
+            }
+            catch (CodeGenerationException e)
+            {
+                Console.WriteLine(e);
+            }
         }
 
         #region Private Methods

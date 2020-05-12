@@ -23,7 +23,7 @@ namespace TestANTLR.Generators.Expressions
                 var ternaryExpression = arrayReadContext.ternaryExpression();
                 var ternaryExpressionGen = new TernaryExpressionGenerator();
                 currentCode = ternaryExpressionGen.GenerateCodeForContext(ternaryExpression, currentCode);
-                var inBracesValueRegister = currentCode.LastAssignedRegister;
+                var inBracesValueRegister = getValueFromExpression(currentCode);
                 
                 // Привод типа в скобках, если надо
                 convertTypeIfNeeded(currentCode, inBracesValueRegister, ternaryExpression);
@@ -66,6 +66,17 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.FuncParametersOffsetFromStackHead = writeParamsToStack(currentCode, functionCallContext,
                     funcSymbol, 0);
 
+                // r0 и r1 нужны для записи текущей векхушки стека и указателя на первый параметр функции
+                var r0 = currentCode.AvaliableRegisters[0];
+                r0.IsFree = false;
+                currentCode.AddAddingValueToRegister(r0, Register.SP(), currentCode.GetCurrentStackOffset());
+                currentCode.AddInlineComment("Current stack head");
+                var r1 = currentCode.AvaliableRegisters[1];
+                r1.IsFree = false;
+                currentCode.AddValueToRegisterAssign(r1, currentCode.FuncParametersOffsetFromStackHead.ToString(), 
+                    SymbolType.GetType("int"));
+                currentCode.AddInlineComment("Offset from stack head for first parameter");
+
                 // Calling function
                 currentCode.AddCall(identifier.GetText());
                 
@@ -74,6 +85,7 @@ namespace TestANTLR.Generators.Expressions
                 {
                     currentCode.AvaliableRegisters[0].IsFree = false;
                     currentCode.LastAssignedRegister = currentCode.AvaliableRegisters[0];
+                    currentCode.FreeLastReferencedAddressRegister();
                 }
             }
             // Dotting (a.b)
@@ -125,7 +137,8 @@ namespace TestANTLR.Generators.Expressions
                 currentCode = ternaryGen.GenerateCodeForContext(currentTernaryExpression, currentCode);
 
                 // Записываем его в стек
-                currentOffsetFromStackHead = writeSymbolToStack(currentCode, sym, currentOffsetFromStackHead);
+                currentOffsetFromStackHead = writeSymbolToStack(currentCode, sym, currentTernaryExpression,
+                    currentOffsetFromStackHead);
 
                 // Переход к следующему параметру
                 parametersList = parametersList.parameterList();
@@ -135,7 +148,8 @@ namespace TestANTLR.Generators.Expressions
             return currentOffsetFromStackHead;
         }
 
-        private int writeSymbolToStack(AsmCodeWriter currentCode, ISymbol symbol, int offsetFromStackHead,
+        private int writeSymbolToStack(AsmCodeWriter currentCode, ISymbol symbol, 
+            MiniCParser.TernaryExpressionContext currentTernaryExpression, int offsetFromStackHead, 
             int offsetFromAddressRegister = 0)
         {
             // Если массив, то записываем адрес
@@ -149,14 +163,18 @@ namespace TestANTLR.Generators.Expressions
                 currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
                 currentCode.FreeRegister(offsetFromAddress);
                 
-                // Считаем адрес в стеке для записи
+                // Считаем адрес в стеке для записи и записываем адрес 0 элемента в регистр
                 var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
+                var zeroAddressRegister = currentCode.GetFreeRegister();
+                currentCode.AddMemToRegisterReading(addressRegister, SymbolType.GetType("int"), zeroAddressRegister);
+                currentCode.AddInlineComment("First array element address");
 
                 // Записываем в стек
-                currentCode.AddRegisterToMemWriting(Register.SP(), addressRegister, 
+                currentCode.AddRegisterToMemWriting(Register.SP(), zeroAddressRegister, 
                     offsetForVar.ToString());
                 
                 // Чистим регистры и увеличиваем offset от головы стека
+                currentCode.FreeRegister(zeroAddressRegister);
                 currentCode.FreeLastReferencedAddressRegister();
                 offsetFromStackHead += symbol.Type.IsArray ? 4 : symbol.Type.Size;
                 return offsetFromStackHead;
@@ -185,6 +203,9 @@ namespace TestANTLR.Generators.Expressions
                     // Чистим регистр
                     currentCode.FreeRegister(offsetFromAddress);
                 }
+                
+                // Приводим тип если нужно
+                convertTypeIfNeeded(currentCode, valueRegister, currentTernaryExpression);  
 
                 // Считаем адрес в стеке для записи
                 var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
@@ -208,7 +229,8 @@ namespace TestANTLR.Generators.Expressions
                 var sym = symKeyVal.Value;
 
                 var offsetFromBase = structSymbol.VariableOffsetFromStartAddress(symName) + offsetFromAddressRegister;
-                offsetFromStackHead = writeSymbolToStack(currentCode, sym, offsetFromStackHead, offsetFromBase);
+                offsetFromStackHead = writeSymbolToStack(currentCode, sym, currentTernaryExpression, offsetFromStackHead,
+                    offsetFromBase);
             }
             currentCode.FreeLastReferencedAddressRegister();
 

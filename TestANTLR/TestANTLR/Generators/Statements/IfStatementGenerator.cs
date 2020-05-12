@@ -6,6 +6,8 @@ namespace TestANTLR.Generators.Statements
 {
     public class IfStatementGenerator: BaseCodeGenerator
     {
+        private static int ifCnt = 0;
+        
         public override AsmCodeWriter GenerateCodeForContext(ParserRuleContext context, AsmCodeWriter currentCode)
         {
             var ifStmtCtx = context as MiniCParser.IfStatementContext;
@@ -14,7 +16,8 @@ namespace TestANTLR.Generators.Statements
             var hasElse = ifStmtCtx.Else() != null;
 
             // Начало ифа
-            var ifName = "if_name_TODO";    // TODO: GETTING IF NAMES
+            var ifName = $"{ifCnt}";
+            ifCnt += 1;
             currentCode.AddIfStart(ifName);
             
             // Вычисление условия ифа
@@ -26,7 +29,6 @@ namespace TestANTLR.Generators.Statements
             convertTypeIfNeeded(currentCode, checkValueRegister, ternaryExpression);
             
             // Получение предикатного регистра и его заполнение
-            var type = SymbolType.GetType("int");     // TODO: TYPING
             var predicateRegister = currentCode.GetFreePredicateRegister();
             currentCode.AddCompareRegisterEqNumber(predicateRegister, checkValueRegister, "0", true);
             currentCode.FreeRegister(checkValueRegister);

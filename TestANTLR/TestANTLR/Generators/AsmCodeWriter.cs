@@ -118,11 +118,21 @@ namespace TestANTLR.Generators
             return variablesOffsetStack.Peek();
         }
 
+        public int PushRegisterValueToStack(Register register, int size = -1)
+        {
+            var type = register.Type;
+            var currentStackOffset = variablesOffsetStack.Pop();
+            AddRegisterToMemWriting(Register.SP(), register, currentStackOffset.ToString());
+            currentStackOffset += size == -1 ? type.Size : size;
+            variablesOffsetStack.Push(currentStackOffset);
+            return currentStackOffset;
+        }
+
         #endregion
         
         #region Scopes work
 
-        private ParseTreeProperty<Scope> scopes { get; }
+        public ParseTreeProperty<Scope> scopes { get; }
         private Stack<Scope> scopesStack = new Stack<Scope>();
 
         public Scope PushScope(ParserRuleContext ctx)
@@ -245,7 +255,10 @@ namespace TestANTLR.Generators
                 if (symbol.Type.IsArray)
                 {
                     // Добавляем указатель на нулевой элемент (костыли ура вот указатели не делали теперь хлебаем)
-                    _code += $"\n\tmemw(SP + #{currentOffset}) = add(SP, #{currentOffset + 4});";
+                    var pointerRegister = GetFreeRegister();
+                    AddAddingValueToRegister(pointerRegister, Register.SP(), currentOffset + 4);
+                    _code += $"\n\tmemw(SP + #{currentOffset}) = {pointerRegister};";
+                    FreeRegister(pointerRegister);
                     currentOffset += 4;
                     for (int i = 0; i < symbol.ArraySize; i++)
                     {
@@ -268,7 +281,10 @@ namespace TestANTLR.Generators
                 if (symbol.Type.IsArray)
                 {
                     // Добавляем указатель на нулевой элемент (костыли ура вот указатели не делали теперь хлебаем)
-                    _code += $"\n\tmemw(SP + #{currentOffset}) = add(SP, #{currentOffset + 4});";
+                    var pointerRegister = GetFreeRegister();
+                    AddAddingValueToRegister(pointerRegister, Register.SP(), currentOffset + 4);
+                    _code += $"\n\tmemw(SP + #{currentOffset}) = {pointerRegister};";
+                    FreeRegister(pointerRegister);
                     currentOffset += 4;
                     for (int i = 0; i < symbol.ArraySize; i++)
                     {
@@ -301,7 +317,6 @@ namespace TestANTLR.Generators
         {
             var label = $"func_{name}_start";
             _code += $"\n{label}:";
-            AddAllocateStackFrame4000();
             PushFunc(name);
         }
 
@@ -459,7 +474,7 @@ namespace TestANTLR.Generators
             if (variable.IsGlobal)
                 _code += $"\n\t{memRegister} = ##{variable.BaseAddress};";
             else
-                _code += $"\n\t{memRegister} = add(SP + #{variable.BaseAddress});";
+                _code += $"\n\t{memRegister} = add(SP, #{variable.BaseAddress});";
             _code += $"\n\t{memFunc}({memRegister} + #{offset}) = {register};";
             FreeRegister(memRegister);
         }
@@ -501,14 +516,67 @@ namespace TestANTLR.Generators
                 // sfmake работает очень странно, так что будет так
                 var floatHex = BitConverter.GetBytes(float.Parse(value));
                 var floatHexAsInt = BitConverter.ToInt32(floatHex, 0);
-                var intRegister = GetFreeRegister();
-                AddValueToRegisterAssign(intRegister, floatHexAsInt.ToString(), SymbolType.GetType("int"));
-                AddInlineComment($"{value} as int hex (sfmake works poorly)");
-                AddIntRegisterToFloatConvert(register, intRegister);
-                FreeRegister(intRegister);
+                AddValueToRegisterAssign(register, floatHexAsInt.ToString(), SymbolType.GetType("int"));
+                AddInlineComment($"{value} as hex (sfmake works poorly)");
             }
-            else 
-                _code += $"\n\t{register} = #{value};";
+            else if (type.Name == "int")
+            {
+                // Переводим из 8/10/16-ричной СИ в 10
+                var intValue = 0;
+                if (value.ToLower().Contains("0x"))
+                    intValue = Convert.ToInt32(value, 16);
+                else if (value.First() == '0')
+                    intValue = Convert.ToInt32(value, 8);
+                else
+                    intValue = Convert.ToInt32(value, 10);
+                _code += $"\n\t{register} = #{intValue};";   
+            }
+            else  // char
+            {
+                // Удаляем ''
+                var charValue = value.Remove(0, 1);
+                charValue = charValue.Remove(charValue.Length-1);
+                
+                var realChar = '\0';
+                if (charValue.Length == 1)
+                    realChar = char.Parse(charValue);
+                else if (charValue.Length == 2)
+                {
+                    switch (charValue[1])
+                    {
+                        case 'a':
+                            realChar = '\a';
+                            break;
+                        case 'b':
+                            realChar = '\b';
+                            break;
+                        case '\\':
+                            realChar = '\\';
+                            break;
+                        case '\'':
+                            realChar = '\'';
+                            break;
+                        case 't':
+                            realChar = '\t';
+                            break;
+                        case 'n':
+                            realChar = '\n';
+                            break;
+                        case 'r':
+                            realChar = '\r';
+                            break;
+                        case '0':
+                            realChar = '\0';
+                            break;
+                        default:
+                            throw new CodeGenerationException($"Unknown terminator symbol {charValue}");
+                    }
+                }
+                else 
+                    throw new CodeGenerationException($"Invalid char literal {value}"); 
+                var asciiCode = (int) realChar;
+                _code += $"\n\t{register} = #{asciiCode};";
+            }
             register.Type = type;
             LastAssignedRegister = register;
         }
@@ -543,6 +611,13 @@ namespace TestANTLR.Generators
             LastAssignedRegister = lhs;
         }
 
+        public void AddAddingValueToRegister(Register lhs, Register r1, int value)
+        {
+            _code += $"\n\t{lhs} = add({r1}, #{value});";
+            lhs.Type = SymbolType.GetType("int");
+            LastAssignedRegister = lhs;
+        }
+        
         public void AddSubRegisterFromRegister(Register lhs, Register s1, Register s2)
         {
             var resultType = SymbolType.GetBigger(s1.Type, s2.Type);
