@@ -1,7 +1,0 @@
-// Wow, super code
-int main()
-{
-    int a = 1
-
-    return;
-}
