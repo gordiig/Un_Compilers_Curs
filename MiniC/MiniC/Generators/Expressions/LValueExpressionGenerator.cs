@@ -23,6 +23,10 @@ namespace MiniC.Generators.Expressions
                 if (symbol == null) 
                     throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
 
+                if (symbol.Type.IsStructType())
+                    currentCode.LastReferencedStructType = symbol.Type;
+                currentCode.LastReferencedSymbol = symbol;
+
                 // Запись в регистр
                 var register = currentCode.GetFreeRegister();
                 currentCode.AddVariableAddressToRegisterReading(symbol, register);
@@ -46,9 +50,10 @@ namespace MiniC.Generators.Expressions
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
                 var lValueType = lValueAddressRegister.Type;
                 
-                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра)
-                currentCode.AddMemToRegisterReading(lValueAddressRegister, SymbolType.GetType("int"), 
-                    lValueAddressRegister);
+                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра), если массив не глобальный
+                if (currentCode.GlobalScope.GetSymbol(currentCode.LastReferencedSymbol.Name) == null)
+                    currentCode.AddMemToRegisterReading(lValueAddressRegister, SymbolType.GetType("int"), 
+                        lValueAddressRegister);
                 
                 // Вычисление оффсета для массива
                 var intType = SymbolType.GetType("int");
@@ -73,11 +78,12 @@ namespace MiniC.Generators.Expressions
                 currentCode = lvalExprGen.GenerateCodeForContext(lvalExpr, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
                 var lValueType = lValueAddressRegister.Type;
+                var structType = currentCode.LastReferencedStructType;
 
                 currentCode.AddComment($"Getting dot value (.{identifier.GetText()})");
                 
                 // Вычисление offset для переменной структуры
-                var structSymbol = currentCode.GlobalScope.FindStruct(lValueType);
+                var structSymbol = currentCode.GlobalScope.FindStruct(structType);
                 var structOffset = structSymbol.VariableOffsetFromStartAddress(identifier.GetText());
 
                 var intType = SymbolType.GetType("int");

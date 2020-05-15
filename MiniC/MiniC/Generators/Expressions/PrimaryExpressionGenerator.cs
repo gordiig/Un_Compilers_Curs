@@ -24,6 +24,10 @@ namespace MiniC.Generators.Expressions
                 if (symbol == null)
                     throw new CodeGenerationException($"Unknown symbol {identifier.GetText()}");
 
+                if (symbol.Type.IsStructType())
+                    currentCode.LastReferencedStructType = symbol.Type;
+                currentCode.LastReferencedSymbol = symbol;
+
                 // Запись адреса в регистр
                 var destRegister = currentCode.GetFreeRegister();
                 currentCode.AddVariableAddressToRegisterReading(symbol, destRegister);

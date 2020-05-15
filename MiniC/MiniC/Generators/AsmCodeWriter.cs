@@ -33,6 +33,9 @@ namespace MiniC.Generators
             for (int i = 0; i < AvaliablePredicateRegisters.Length; i++)
                 AvaliablePredicateRegisters[i] = new Register($"p{i}");
         }
+
+        public SymbolType LastReferencedStructType = null;
+        public ISymbol LastReferencedSymbol = null;
         
         #region Registers work
         

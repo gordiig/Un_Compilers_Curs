@@ -35,9 +35,10 @@ namespace MiniC.Generators.Expressions
                 var variableAddressRegister = currentCode.LastReferencedAddressRegister;
                 var variableType = variableAddressRegister.Type;
                 
-                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра)
-                currentCode.AddMemToRegisterReading(variableAddressRegister, SymbolType.GetType("int"), 
-                    variableAddressRegister);
+                // Получаем адрес нулевого элемента (то есть читаем значение текущего регистра) если массив не глобальный
+                if (currentCode.GlobalScope.GetSymbol(currentCode.LastReferencedSymbol.Name) == null)
+                    currentCode.AddMemToRegisterReading(variableAddressRegister, SymbolType.GetType("int"), 
+                        variableAddressRegister);
 
                 // Вычисление смещения
                 currentCode.AddComment("Getting indexed value");
@@ -97,9 +98,10 @@ namespace MiniC.Generators.Expressions
                 currentCode = postfixEpressionGen.GenerateCodeForContext(postfixExpression, currentCode);
                 var lValueAddressRegister = currentCode.LastReferencedAddressRegister;
                 var lValueType = lValueAddressRegister.Type;
+                var stuctType = currentCode.LastReferencedStructType;
                 
                 // Вычисляем offset для переменной структуры
-                var structSymbol = currentCode.GlobalScope.FindStruct(lValueType);
+                var structSymbol = currentCode.GlobalScope.FindStruct(stuctType);
                 var structOffset = structSymbol.VariableOffsetFromStartAddress(structReadContext.Identifier().GetText());
                 
                 // Запись offset в регистр
@@ -163,10 +165,14 @@ namespace MiniC.Generators.Expressions
                 currentCode.AddAddingRegisterToRegister(addressRegister, addressRegister, offsetFromAddress);
                 currentCode.FreeRegister(offsetFromAddress);
                 
-                // Считаем адрес в стеке для записи и записываем адрес 0 элемента в регистр
+                // Считаем адрес в стеке для записи и записываем адрес 0 элемента в регистр, если массив не глобальный
                 var offsetForVar = currentCode.GetCurrentStackOffset() + offsetFromStackHead;
                 var zeroAddressRegister = currentCode.GetFreeRegister();
-                currentCode.AddMemToRegisterReading(addressRegister, SymbolType.GetType("int"), zeroAddressRegister);
+                if (currentCode.GlobalScope.GetSymbol(currentCode.LastReferencedSymbol.Name) == null)
+                    currentCode.AddMemToRegisterReading(addressRegister, SymbolType.GetType("int"),
+                    zeroAddressRegister);
+                else 
+                    currentCode.AddRegisterToRegisterAssign(zeroAddressRegister, addressRegister);
                 currentCode.AddInlineComment("First array element address");
 
                 // Записываем в стек

@@ -50,7 +50,8 @@ namespace MiniC.Generators.Definitions
                             valueTypeToConvert);
                     
                     // Кладем в регистр offset и присваиваем
-                    var varOffset = i * type.Size + 4;
+                    var offsetForFirstValue = currentCode.GlobalScope.GetSymbol(identifier) == null ? 4 : 0;
+                    var varOffset = i * type.Size + offsetForFirstValue;
                     currentCode.AddRegisterToVariableWritingWithOffset(symbol, valueRegister, varOffset.ToString());
                     currentCode.AddInlineComment($"Assigned {symbol.Name}[{i}]");
                     
